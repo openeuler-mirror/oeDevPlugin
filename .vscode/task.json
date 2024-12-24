@@ -1,0 +1,20 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "tsc: build - tsconfig.json",
+        "type": "typescript",
+        "tsconfig": "tsconfig.json",
+        "group": "build",
+        "problemMatcher": ["$tsc"],
+        "presentation": {
+          "reveal": "always",
+          "panel": "shared"
+        },
+        "runOptions": {
+          "runOn": "default"
+        }
+      }
+    ]
+  }
+  

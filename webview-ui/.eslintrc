@@ -1,0 +1,12 @@
+{
+    "extends": [
+        "plugin:vue/vue3-recommended",
+        "plugin:prettier/recommended",
+        "@unocss"
+    ],
+    "globals": {
+        "ElMessage": "readonly",
+        "ElMessageBox": "readonly",
+        "ElLoading": "readonly"
+    }
+}
