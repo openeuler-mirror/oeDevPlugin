@@ -1,7 +1,7 @@
 {
   "name": "openeuler-vscode",
   "displayName": "openeuler-vscode",
-  "version": "0.0.2",
+  "version": "0.0.1",
   "description": "openeuler vscode extension",
   "repository": {
     "url": "https://gitee.com/kunpeng_compute/openeuler-vscode"
@@ -90,22 +90,25 @@
     }
   },
   "scripts": {
-    "install:all": "pnpm install && cd webview-ui && pnpm install",
-    "dev": "concurrently \"pnpm run dev:webview\" \"pnpm run watch\"",
-    "build": "pnpm run build:webview ",
-    "dev:web": "cd webview-ui && pnpm run dev",
-    "dev:webview": "cd webview-ui && pnpm run build:watch",
-    "build:webview": "cd webview-ui && pnpm run build",
-    "pack:vsix": "pnpm build && vsce package --no-dependencies",
-    "vscode:prepublish": "pnpm run build-rollup",
+    "install:all": "npm install --registry=https://registry.npmmirror.com && cd webview-ui && npm install --registry=https://registry.npmmirror.com",
+    "dev": "concurrently \"npm run dev:webview\" \"npm run watch\"",
+    "build": "npm run build:webview ",
+    "dev:web": "cd webview-ui && npm run dev",
+    "dev:webview": "cd webview-ui && npm run build:watch",
+    "build:webview": "cd webview-ui && npm run build",
+    "pack:vsix": "npm build && vsce package --no-dependencies",
+    "vscode:prepublish": "npm run build-rollup",
     "compile": "tsc -p ./",
-    "watch": "pnpm run clear:out && tsc -watch -p ./",
-    "pretest": "pnpm run compile && pnpm run lint",
+    "watch": "npm run clear:out && tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
     "clear": "rimraf ./out && rimraf ./node_modules",
     "clear:out": "rimraf ./out/extension",
-    "build-rollup": "pnpm run clear:out && rollup -c"
+    "build-rollup": "npm run clear:out && npx rollup -c",
+    "tar-source": "tar -czvf oeDevPlugin-0.0.1.tar.gz .vscode resource src .eslintrc.json .gitignore .npmrc .prettierignore .prettierrc .vscode-test.mjs .vscodeignore LICENSE package-lock.json package.json README.dev.md README.en.md README.md rollup.config.mjs tsconfig.json vsc-extension-quickstart.md webview-ui/.vscode/* webview-ui/lib/* webview-ui/public/* webview-ui/src/* webview-ui/.eslintrc webview-ui/.gitignore webview-ui/.prettierignore webview-ui/.prettierrc webview-ui/auto-imports.d.ts webview-ui/components.d.ts webview-ui/index.html webview-ui/package-lock.json webview-ui/package.json webview-ui/README.md webview-ui/tsconfig.json webview-ui/tsconfig.node.json webview-ui/uno.config.ts webview-ui/vite.config.ts",
+    "tar-node-modules-ext": "tar -czvf oeDevPlugin-node_modules_extension.tar.gz node_modules",
+    "tar-node-modules-webview": "cd webview-ui && tar -czvf oeDevPlugin-node_modules_webview.tar.gz node_modules"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.2",
