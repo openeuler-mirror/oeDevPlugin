@@ -46,6 +46,7 @@
           <el-button @click="openInIde(item.repo, cloneForm.branch[i], cloneForm.currentPath)"
             class="action-button">在VS-CODE中打开</el-button>
           <el-button @click="copyUrl(item.ownerSlashRepo)" class="action-button">复制仓库地址</el-button>
+          <el-button @click="openDialog(item.ownerSlashRepo, item.owner)" class="action-button">fork 仓库</el-button>
           <el-button v-if="cfgStore.isVscodeInOpenEuler && activeTab === 'src-openeuler'" class="action-button"
             @click="doRpmbuild(item.ownerSlashRepo, cloneForm.branch[i])">本地构建</el-button>
         </div>
@@ -54,22 +55,43 @@
         {{ listPlaceholder }}
       </div>
     </div>
+    <el-dialog v-model="dialogVisible" title="请确认仓库fork的目标空间" width="500">
+      <el-form :model="form">
+        <el-form-item :label="`${cfgStore.giteeUserInfo.name} @${cfgStore.giteeUserInfo.login}`"
+          :label-width="300"></el-form-item>
+        <el-form-item label="仓库名称 *" :label-width="140">
+          <el-input v-model="form.name" :placeholder="`${form.name}`" autocomplete="off" />
+        </el-form-item>
+        <el-form-item label="路径 *" :label-width="140">
+          <el-input v-model="form.path" :placeholder="`${form.path}`" autocomplete="off" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="forkRepo()">
+            确认
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
     <div class="div-page">
       <el-pagination background layout="prev, pager, next" v-model:current-page="pageInfo.currentPage"
-        :total="pageInfo.total" :page-size="pageInfo.pageSize" :disabled="listLoading" @current-change="reqRepoInfoList" />
+        :total="pageInfo.total" :page-size="pageInfo.pageSize" :disabled="listLoading"
+        @current-change="reqRepoInfoList" />
     </div>
   </div>
 </template>
-
 <script lang="ts" setup>
 import { usePluginCfgStore } from '@/store/modules/pluginCfg';
 import { useOeReposStore } from '@/store/modules/oeRepos';
 import { httpRequest } from '@/utils/request';
 import { useCall, useSubscribable } from '@/utils/apiClient';
 import TabsBar from '@/components/TabsBar.vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 const repoStore = useOeReposStore();
-
+let dialogVisible = ref(false);
 const TABS = [
   { label: 'openEuler', value: 'openeuler' },
   { label: 'src-openEuler', value: 'src-openeuler' }
@@ -100,6 +122,13 @@ const changeActiveTab = (val: string) => {
   filterValue.value = '';
   reqRepoInfoList();
 };
+
+const form = reactive({
+  name: '',
+  path: '',
+  repo: '',
+  owner: '',
+})
 
 const cfgStore = usePluginCfgStore();
 
@@ -308,6 +337,35 @@ async function copyUrl(ownerSlashRepo: string) {
   }
 }
 
+async function openDialog(ownerSlashRepo: string, owner: string) {
+  if (!ownerSlashRepo) {
+    ElMessage.error('fork仓库失败，未知错误');
+    return;
+  }
+  const repo = ownerSlashRepo.split('/')[1];
+  form.repo = repo;
+  form.owner = owner;
+  dialogVisible.value = true;
+  form.name = repo;
+  form.path = repo;
+}
+
+async function forkRepo() {
+  if (!form.name || !form.path) {
+    ElMessage.error('fork仓库失败，参数错误');
+    dialogVisible.value = false;
+    return;
+  }
+  const owner = form.owner;
+  const repo = form.repo;
+  const path = form.path;
+  const response = JSON.parse(await useCall('WebviewApi.forkRepo', owner, repo, path));
+  if(response.err){
+    ElMessage.error("已经存在同名的仓库（忽略大小写），Fork 失败");
+    return;
+  }
+  dialogVisible.value = false;
+}
 
 </script>
 

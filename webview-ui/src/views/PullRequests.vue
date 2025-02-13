@@ -20,12 +20,13 @@
     </div>
 
     <div class="pr-list" v-loading="prListLoading">
-      <el-card class="pr-card mt-16px" v-for="item in prList" :key="item.id" @click="openLink(item.html_url)">
+      <el-card class="pr-card mt-16px" v-for="(item, i) in prList" :key="i">
         <div class="pr-card-top">
-          <div class="pr-tag" :style="{backgroundColor: STATUS_MAP.get(item.state)?.c}">
+          <div class="pr-tag" :style="{ backgroundColor: STATUS_MAP.get(item.state)?.c }">
             !{{ item.number }} {{ STATUS_MAP.get(item.state)?.t }}
           </div>
-          <div class="pr-tt">{{ item.title }}</div>
+          <el-input class="pr-tt" :value="item.title" v-model="inputList[i]"
+            @change="changePRtitle(inputList[i], item.html_url, i)"></el-input>
         </div>
         <div class="pr-flow">
           <span>{{ item.head.repo.full_name }}</span>
@@ -35,6 +36,10 @@
         <div class="pr-time">
           <span>创建于{{ dayjs(item.created_at).format('YYYY-MM-DD HH:mm') }}</span>
           <span v-if="item.merged_at" class="underline">合并于{{ dayjs(item.merged_at).format('YYYY-MM-DD HH:mm') }}</span>
+          <el-button class="action-button" @click="mergePullRequest(item.user.login, item.base.repo.name, item.number)">
+            合入PR</el-button>
+          <el-button class="action-button" @click="closePullRequest(item.user.login, item.base.repo.name, item.number)">
+            关闭PR</el-button>
         </div>
       </el-card>
       <div class="pr-list-blank wh-full f-c-c" v-if="listPlaceholder">
@@ -47,7 +52,7 @@
     </div>
   </div>
 </template>
-  
+
 <script lang="ts" setup>
 import { dayjs } from 'element-plus';
 import { usePluginCfgStore } from '@/store/modules/pluginCfg';
@@ -56,9 +61,9 @@ import { httpRequest } from '@/utils/request';
 import { useCall } from '@/utils/apiClient';
 
 const STATUS_MAP = new Map([
-  ['open', {t: '开启', c: '#67c23a'}],
-  ['closed', {t: '已关闭', c: '#f56c6c'}],
-  ['merged', {t: '已合入', c: '#909399'}]
+  ['open', { t: '开启', c: '#67c23a' }],
+  ['closed', { t: '已关闭', c: '#f56c6c' }],
+  ['merged', { t: '已合入', c: '#909399' }]
 ]);
 
 const cfgStore = usePluginCfgStore();
@@ -76,7 +81,7 @@ const repoOptions = computed(() => {
 const isMineOnly = ref(false);
 const prListLoading = ref(false);
 const prList = ref([] as any[]);
-
+const inputList = ref([] as string[]);
 const pageInfo = reactive({
   currentPage: 1,
   total: 0
@@ -94,10 +99,31 @@ async function reqPrList() {
       per_page: 20,
       ...(isMineOnly.value ? { author: cfgStore.giteeUserInfo.login } : {})
     }
-  }).catch(() => {});
+  }).catch(() => { });
   prListLoading.value = false;
   prList.value = res?.dataList || [];
   pageInfo.total = Number(res?.dataHeaders?.total) || 0;
+}
+
+async function changePRtitle(input: string, url: string, index: number) {
+  if (!input) {
+    return;
+  }
+  const parts = url.split('/');
+  const owner = parts[3];
+  const repo = parts[4];
+  const number = parts[6];
+  prList.value[index].title = input;
+  const res = await httpRequest(`repos/${owner}/${repo}/pulls/${number}`, {
+    method: 'PATCH',
+    params: {
+      access_token: cfgStore.personalAccessToken,
+      title: input,
+      owner: owner,
+      repo: repo,
+      number: number,
+    },
+  })
 }
 
 function onQuery(shouldClearPage: boolean) {
@@ -129,6 +155,20 @@ const listPlaceholder = computed(() => {
   return '暂无数据';
 });
 
+async function mergePullRequest(fullName: string, repo: string, num: number) {
+  const response = JSON.parse(await useCall('WebviewApi.mergePullRequest', fullName, repo, num));
+  if(response.err){
+    ElMessage("合并PR失败，请检测是否有权限");
+  }
+}
+
+async function closePullRequest(fullName: string, repo: string, num: number) {
+  const response = JSON.parse(await useCall('WebviewApi.closePullRequest', fullName, repo, num));
+  if(response.err){
+    ElMessage("关闭PR失败，请检查是否有权限");
+  }
+}
+
 watch(() => cfgStore.personalAccessToken, async tkn => {
   if (tkn && repoList.value.length === 0) {
     const loadingInst = ElLoading.service({ fullscreen: true });
@@ -145,6 +185,7 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
   margin-top: 4px;
   background-color: var(--el-bg-color-overlay);
 }
+
 .pr-list {
   width: calc(100% - 32px);
   margin: 0 auto;
@@ -155,15 +196,18 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
   border: 1px solid var(--el-border-color);
   border-radius: 4px;
 }
+
 .pr-card {
   cursor: pointer;
 }
+
 .pr-card-top {
   width: 100%;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
 }
+
 .pr-tag {
   padding: 0 8px;
   flex-shrink: 0;
@@ -174,16 +218,22 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
   font-weight: bold;
   line-height: 24px;
 }
-.pr-tt {
+
+.pr-tt .el-input__inner {
   margin-left: 12px;
   font-size: 16px;
   line-height: 24px;
   font-weight: bold;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
+
 .pr-flow {
   padding: 12px 0 8px;
   font-size: 12px;
   line-height: 18px;
+
   span {
     display: inline-block;
     padding: 0 4px;
@@ -192,20 +242,24 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
     color: #fff;
     background-color: var(--el-color-info-light-5);
   }
+
   span.pr-flow-to {
     background: none;
     padding: 0;
   }
 }
+
 .pr-time {
   margin-top: 4px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+
   span {
     display: inline-block;
     margin-right: 6px;
   }
 }
+
 .pr-page {
   height: 48px;
   width: 100%;
@@ -213,9 +267,17 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
   align-items: center;
   justify-content: center;
 }
+
+.action-button {
+  padding: 5px 5px;
+  font-size: 14px;
+  border-radius: 5px;
+  margin-left: 10px;
+  border: 1px solid #e4e4e4;
+}
+
 .pr-list-blank {
   color: var(--el-color-info);
   font-size: 32px;
 }
 </style>
- 
