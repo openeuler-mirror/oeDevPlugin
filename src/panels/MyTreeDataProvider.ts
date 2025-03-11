@@ -42,6 +42,11 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeIt
           command: 'openeuler_vscode_plugin.pageShow',
           arguments: ['PullRequests']
         }),
+        treeItemWithCommand(new vscode.TreeItem("提交PR", vscode.TreeItemCollapsibleState.None), {
+          title: '提交PR',
+          command: 'openeuler_vscode_plugin.pageShow',
+          arguments: ['CreatePR']
+        }),
         (() => {
           const tItem = new vscode.TreeItem("我的Repo", vscode.TreeItemCollapsibleState.Collapsed);
           tItem.contextValue = 'myRepoNode';

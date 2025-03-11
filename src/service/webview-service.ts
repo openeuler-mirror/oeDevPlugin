@@ -17,6 +17,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { isOpenEuler, runRpmBuildScript } from '../utils/utils';
+import { json } from 'stream/consumers';
 
 let extensionContext: ExtensionContext | undefined;
 
@@ -146,9 +147,34 @@ export class WebviewApiController {
     }
   }
   @callable()
-  async doCopyUrl(url: string){
+  async doCopyUrl(url: string) {
     vscode.env.clipboard.writeText(url);
     return '已复制到剪切板';
+  }
+  @callable()
+  async forkRepo(user: string, repo: string, path: string){
+    const cmd = `oegitext fork -user ${user} -repo ${repo} -path ${path}`;
+    return await runOeGitExtCommand(cmd);
+  }
+  @callable()
+  async getForkedRepos() {
+    const cmd = `oegitext show proj`;
+    return await runOeGitExtCommand(cmd);
+  }
+  @callable()
+  async createPullRequest(user: string, repo: string, title: string, head: string, base: string){
+    const cmd = `oegitext pull -cmd create -user ${user} -repo ${repo} -title ${title} -head ${head} -base ${base}`;
+    return await runOeGitExtCommand(cmd);
+  }
+  @callable()
+  async mergePullRequest(user: string, repo: string, PRNumber: number) {
+    const cmd = `oegitext pull -cmd merge -user ${user} -repo ${repo} -number ${PRNumber}`;
+    return await runOeGitExtCommand(cmd);
+  }
+  @callable()
+  async closePullRequest(user: string, repo: string, PRNumber: number) {
+    const cmd = `oegitext pull -cmd close -user ${user} -repo ${repo} -number ${PRNumber}`;
+    return await runOeGitExtCommand(cmd);
   }
 }
 export function bindWebviewApi(webview: Webview) {
@@ -243,5 +269,33 @@ function runGitCommand(command: string, cwd: string): Promise<void> {
       }
       resolve();
     });
+  });
+}
+
+async function runOeGitExtCommand(command: string) {
+  let err = '';
+  let out = '';
+  let errNum = '';
+  await new Promise<void>(res => {
+    exec(`${command}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error executing mergePullRequest command: ${error.message}`);
+        err = 'Error during Git operation';
+        res();
+        return;
+      }
+      if (stderr) {
+        console.error(`Error during Gitee operation: ${stderr}`);
+        err = 'Error during Gitee operation';
+        res();
+        return;
+      }
+      out = stdout;
+      errNum = stderr;
+      res();
+    });
+  });
+  return JSON.stringify({
+    err, out, errNum,
   });
 }

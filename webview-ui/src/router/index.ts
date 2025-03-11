@@ -39,6 +39,11 @@ const router = createRouter({
           component: () => import("@/views/MyRepos.vue"),
         },
         {
+          path: "createPR",
+          name: "CreatePR",
+          component: () => import("@/views/CreatePR.vue"),
+        },
+        {
           path: "communitys",
           name: "Communitys",
           component: () => import("@/views/Communitys.vue"),
