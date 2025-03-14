@@ -200,7 +200,7 @@ async function createPullRequest(repoInfo: forkedRepoInfo) {
     const descriptionInfo = description.value;
     const head = repoInfo.fullName.split('/')[0] + ":" + sourceBranch.value;
     const base = destBranch.value;
-    const response = JSON.parse(await useCall('WebviewApi.createPullRequest'));
+    const response = JSON.parse(await useCall('WebviewApi.createPullRequest', owner, repo, head, base,titleInfo, descriptionInfo ));
     if(response.err){
         ElMessage("创建pull request失败");
     }
