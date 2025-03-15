@@ -1,14 +1,14 @@
 /* Copyright (c) 2024-2024 Huawei Technologies Co., Ltd. All right reserved.
  * oeDevPlugin is licensed under Mulan PSL v2.
- * You can use this software according to the terms and conditions of the Mulan PSL v2. 
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *             http://license.coscl.org.cn/MulanPSL2 
+ *             http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.  
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
  * See the Mulan PSL v2 for more details.
  * =================================================================================================================== */
 
-import { env, workspace, EventEmitter, Uri } from 'vscode';
+import { commands, env, workspace, EventEmitter, Uri } from 'vscode';
 import type { ExtensionContext, Webview } from 'vscode';
 import { CecServer } from 'cec-client-server';
 import { controller, callable, getControllers, subscribable } from 'cec-client-server/decorator';
@@ -17,7 +17,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { isOpenEuler, runRpmBuildScript } from '../utils/utils';
-import { json } from 'stream/consumers';
 
 let extensionContext: ExtensionContext | undefined;
 
@@ -26,8 +25,6 @@ export function setExtensionContextForWebviewService(context: ExtensionContext) 
 }
 
 export const webviewRouterChangeEmitter = new EventEmitter<string>();
-
-const vscode = require('vscode');
 
 @controller('WebviewApi')
 export class WebviewApiController {
@@ -112,7 +109,7 @@ export class WebviewApiController {
       return res;
     }
 
-    const rpmbuildMsg = runRpmBuildScript(extensionContext!, repoLocation, branch);
+    const rpmbuildMsg = runRpmBuildScript(repoLocation, branch);
     res.suc = rpmbuildMsg === 'suc';
     if (!res.suc) {
       res.msg = `本地构建运行失败：${rpmbuildMsg || '未知错误'}`;
@@ -134,21 +131,20 @@ export class WebviewApiController {
       const repoName = repoUrl.split('/').pop()?.replace('.git', '');
       const cloneDir = path.join(currentPath, repoName || 'default_repo');
       if (fs.existsSync(cloneDir)) {
-        vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(cloneDir));
+        commands.executeCommand('vscode.openFolder', Uri.file(cloneDir));
         return;
       } else {
         await runGitCommand(`git clone -b ${branch} https://gitee.com/${repoUrl}.git ${cloneDir}`, cloneDir);
-        vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(cloneDir));
+        commands.executeCommand('vscode.openFolder', Uri.file(cloneDir));
         return;
       }
     } catch (error) {
-      const vscode = require('vscode');
       return '在VS-CODE 打开失败';
     }
   }
   @callable()
   async doCopyUrl(url: string) {
-    vscode.env.clipboard.writeText(url);
+    env.clipboard.writeText(url);
     return '已复制到剪切板';
   }
   @callable()

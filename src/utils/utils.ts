@@ -1,33 +1,42 @@
 /* Copyright (c) 2024-2024 Huawei Technologies Co., Ltd. All right reserved.
  * oeDevPlugin is licensed under Mulan PSL v2.
- * You can use this software according to the terms and conditions of the Mulan PSL v2. 
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *             http://license.coscl.org.cn/MulanPSL2 
+ *             http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.  
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
  * See the Mulan PSL v2 for more details.
  * =================================================================================================================== */
 
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { window, type ExtensionContext } from 'vscode';
+import * as crypto from 'crypto';
+import { window } from 'vscode';
 import { SCRIPT_CONTENT_MAP } from './scripts';
-
-const SHELL_PREFIX = 'oe_vscode_ext_script_';
 
 export function isOpenEuler() {
   const rel = (os.release() || '').toLowerCase();
   return rel.includes('.oe');
 }
 
-function checkScriptExist(context: ExtensionContext, scriptName: string) {
-  const fileName = `${SHELL_PREFIX}${scriptName}`;
-  const extensionPath = context.extensionPath;
-  const scriptLocation = path.join(extensionPath, fileName);
+function getScriptFileName(originName: string) {
+  const md5 = crypto
+    .createHash('md5')
+    .update(SCRIPT_CONTENT_MAP.get(originName) as string)
+    .digest('hex');
+  return `${md5.substring(0, 8)}${originName}`;
+}
+
+function getScriptPath(originName: string) {
+  return path.join(os.tmpdir(), getScriptFileName(originName));
+}
+
+function checkScriptExist(scriptOriginName: string) {
+  const scriptLocation = getScriptPath(scriptOriginName);
   let msg = '';
   if (!fs.existsSync(scriptLocation)) {
-    const fileContent = SCRIPT_CONTENT_MAP.get(scriptName);
+    const fileContent = SCRIPT_CONTENT_MAP.get(scriptOriginName);
     if (!fileContent) {
       msg = '脚本内容获取失败';
       return msg;
@@ -41,13 +50,10 @@ function checkScriptExist(context: ExtensionContext, scriptName: string) {
   return msg;
 }
 
-export function runRpmBuildScript(context: ExtensionContext, repoLocation: string, repoBranch: string) {
-  // 尝试在扩展目录中查找脚本
-  const extensionPath = context.extensionPath;
-  const fileName = `${SHELL_PREFIX}rpmbuild-dev`;
-  const scriptLocation = path.join(extensionPath, fileName);
+export function runRpmBuildScript(repoLocation: string, repoBranch: string) {
+  const scriptLocation = getScriptPath('rpmbuild-dev');
   try {
-    const checkExistMsg = checkScriptExist(context, 'rpmbuild-dev');
+    const checkExistMsg = checkScriptExist('rpmbuild-dev');
     if (checkExistMsg) {
       return checkExistMsg;
     }
