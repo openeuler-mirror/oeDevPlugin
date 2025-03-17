@@ -9,6 +9,7 @@
  * =================================================================================================================== */
 
 import type { usePluginCfgStore } from '../store/modules/pluginCfg';
+import { useCall } from './apiClient';
 
 export function openAccessTokenPrompt(cfgStore: ReturnType<typeof usePluginCfgStore>) {
   return ElMessageBox.prompt('配置Gitee私人令牌', '私人令牌', {
@@ -21,6 +22,7 @@ export function openAccessTokenPrompt(cfgStore: ReturnType<typeof usePluginCfgSt
     inputValue: cfgStore.personalAccessToken || ''
   }).then(({ value }) => {
     if (value) {
+      useCall('WebviewApi.configPersonalAccessToken', value);
       return cfgStore.updatePersonalAccessTokenCfg(value).then(() => value);
     }
     return value;

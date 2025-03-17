@@ -148,7 +148,12 @@ export class WebviewApiController {
     return '已复制到剪切板';
   }
   @callable()
-  async forkRepo(user: string, repo: string, path: string){
+  async configPersonalAccessToken(accessToken: string) {
+    const cmd = `oegitext config -token ${accessToken}`;
+    return await runOeGitExtCommand(cmd);
+  }
+  @callable()
+  async forkRepo(user: string, repo: string, path: string) {
     const cmd = `oegitext fork -user ${user} -repo ${repo} -path ${path}`;
     return await runOeGitExtCommand(cmd);
   }
@@ -158,8 +163,8 @@ export class WebviewApiController {
     return await runOeGitExtCommand(cmd);
   }
   @callable()
-  async createPullRequest(user: string, repo: string, title: string, head: string, base: string){
-    const cmd = `oegitext pull -cmd create -user ${user} -repo ${repo} -title ${title} -head ${head} -base ${base}`;
+  async createPullRequest(user: string, repo: string, head: string, base: string, title: string, body: string) {
+    const cmd = `oegitext pull -cmd create -user ${user} -repo ${repo} -head ${head} -base ${base} -title ${title} -body ${body}`;
     return await runOeGitExtCommand(cmd);
   }
   @callable()
