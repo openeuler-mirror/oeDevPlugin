@@ -97,7 +97,7 @@ export class WebviewApiController {
       res.msg = '获取工作文件夹路径失败，请检查vscode插件配置';
       return res;
     }
-    let repoName = ownerSlashRepo.split('/')?.[1] || '';
+    let repoName = ownerSlashRepo;
     if (repoName.endsWith('.git')) {
       repoName = repoName.slice(0, -4);
     }
@@ -128,7 +128,7 @@ export class WebviewApiController {
   @callable()
   async openInIde(repoUrl: string, branch: string, currentPath: string) {
     try {
-      const repoName = repoUrl.split('/').pop()?.replace('.git', '');
+      const repoName = repoUrl.replace('.git', '');
       const cloneDir = path.join(currentPath, repoName || 'default_repo');
       if (fs.existsSync(cloneDir)) {
         commands.executeCommand('vscode.openFolder', Uri.file(cloneDir));
@@ -190,7 +190,7 @@ export function bindWebviewApi(webview: Webview) {
 
 async function openInFolder(repoUrl: string, branch: string, currentPath: string) {
   try {
-    const repoName = repoUrl.split('/').pop()?.replace('.git', '');
+    const repoName = repoUrl.replace('.git', '');
     const cloneDir = path.join(currentPath, repoName || 'default_repo');
     if (fs.existsSync(cloneDir)) {
       return await openFolder(cloneDir, cloneDir);
@@ -238,8 +238,7 @@ function openFolder(folderPath: string, cwd: string) {
 async function gitPullOpetation(repoUrl: string, branch: string, currentPath: string): Promise<string> {
 
   try {
-    const repoName = repoUrl.split('/').pop()?.replace('.git', '');
-
+    const repoName = repoUrl.replace('.git', '');
     const cloneDir = path.join(currentPath, repoName || 'default_repo');
     if (!branch) {
       return '请选择分支';
@@ -282,14 +281,17 @@ async function runOeGitExtCommand(command: string) {
       if (error) {
         console.error(`Error executing mergePullRequest command: ${error.message}`);
         err = 'Error during Git operation';
+        const code = error.message.match(/status code: (\d+)/);
+        const message = error.message.match(/"message":"([^"]+)"/);
+        console.info(`code = ${code} message = ${message}`);
+        stdout = message ? message[1] : '';
+        stderr = code ? code[1] : '';
         res();
-        return;
       }
       if (stderr) {
         console.error(`Error during Gitee operation: ${stderr}`);
         err = 'Error during Gitee operation';
         res();
-        return;
       }
       out = stdout;
       errNum = stderr;
