@@ -177,6 +177,11 @@ export class WebviewApiController {
     const cmd = `oegitext pull -cmd close -user ${user} -repo ${repo} -number ${PRNumber}`;
     return await runOeGitExtCommand(cmd);
   }
+  @callable()
+  async openPullRequest(user: string, repo: string, PRNumber: number) {
+    const cmd = `oegitext pull -cmd open -user ${user} -repo ${repo} -number ${PRNumber}`;
+    return await runOeGitExtCommand(cmd);
+  }
 }
 export function bindWebviewApi(webview: Webview) {
   const cecServer = new CecServer(
@@ -280,7 +285,7 @@ async function runOeGitExtCommand(command: string) {
   await new Promise<void>(res => {
     exec(`${command}`, (error, stdout, stderr) => {
       if (error) {
-        console.error(`Error executing mergePullRequest command: ${error.message}`);
+        console.error(`Error executing command: ${error.message}`);
         err = 'Error during Git operation';
         res();
         return;

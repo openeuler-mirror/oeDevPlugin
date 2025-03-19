@@ -36,10 +36,12 @@
         <div class="pr-time">
           <span>创建于{{ dayjs(item.created_at).format('YYYY-MM-DD HH:mm') }}</span>
           <span v-if="item.merged_at" class="underline">合并于{{ dayjs(item.merged_at).format('YYYY-MM-DD HH:mm') }}</span>
-          <el-button class="action-button" @click="mergePullRequest(item.user.login, item.base.repo.name, item.number)">
+          <el-button class="action-button" @click="mergePullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state, item.mergeable)">
             合入PR</el-button>
-          <el-button class="action-button" @click="closePullRequest(item.user.login, item.base.repo.name, item.number)">
+          <el-button class="action-button" @click="closePullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state)">
             关闭PR</el-button>
+          <el-button class="action-button" @click="openPullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state)">
+            打开PR</el-button>
         </div>
       </el-card>
       <div class="pr-list-blank wh-full f-c-c" v-if="listPlaceholder">
@@ -155,17 +157,41 @@ const listPlaceholder = computed(() => {
   return '暂无数据';
 });
 
-async function mergePullRequest(fullName: string, repo: string, num: number) {
-  const response = JSON.parse(await useCall('WebviewApi.mergePullRequest', fullName, repo, num));
-  if(response.err){
-    ElMessage("合并PR失败，请检测是否有权限");
+async function mergePullRequest(fullName: string, repo: string, num: number, state: string, mergeable: boolean) {
+  if (state == "open" && mergeable) {
+    const response = JSON.parse(await useCall('WebviewApi.mergePullRequest', fullName, repo, num));
+    if(response.err){
+      ElMessage("合并PR失败，请检测是否有权限");
+    }
+    reqPrList();
+  } else if (state == "merged") {
+    ElMessage("PR已合并，无需再次合并");
+  } else {
+    ElMessage("无法合并PR，请检查PR状态并解决冲突");
   }
 }
 
-async function closePullRequest(fullName: string, repo: string, num: number) {
-  const response = JSON.parse(await useCall('WebviewApi.closePullRequest', fullName, repo, num));
-  if(response.err){
-    ElMessage("关闭PR失败，请检查是否有权限");
+async function closePullRequest(fullName: string, repo: string, num: number, state: string) {
+  if (state == "open") {
+    const response = JSON.parse(await useCall('WebviewApi.closePullRequest', fullName, repo, num));
+    if(response.err){
+      ElMessage("关闭PR失败，请检查是否有权限");
+    }
+    reqPrList();
+  } else {
+    ElMessage("PR无需关闭");
+  }
+}
+
+async function openPullRequest(fullName: string, repo: string, num: number, state: string) {
+  if (state == "closed") {
+    const response = JSON.parse(await useCall('WebviewApi.openPullRequest', fullName, repo, num));
+    if(response.err){
+      ElMessage("打开PR失败，请检查是否有权限");
+    }
+    reqPrList();
+  } else {
+    ElMessage("PR无需打开");
   }
 }
 
