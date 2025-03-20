@@ -147,6 +147,127 @@ export class WebviewApiController {
     env.clipboard.writeText(url);
     return '已复制到剪切板';
   }
+
+  @callable()
+  async checkRepoStatus(repoPath: string) {
+    try {
+      // 检查路径是否存在
+      if (!fs.existsSync(repoPath)) {
+        return false;
+      }
+
+      // 检查是否是git仓库
+      const gitDir = path.join(repoPath, '.git');
+      if (!fs.existsSync(gitDir)) {
+        return false;
+      }
+
+
+      // 检查是否有未提交修改
+      const output = await new Promise<string>((resolve, reject) => {
+        exec('git status --porcelain', { cwd: repoPath }, (error, stdout) => {
+          error ? reject(error) : resolve(stdout);
+        });
+      });
+
+      return true;
+    } catch (error) {
+      return {
+        suc: false,
+        msg: `仓库状态检查失败: ${error instanceof Error ? error.message : error}`,
+        data: { exists: false, hasChanges: false }
+      };
+    }
+  }
+
+  @callable()
+  async getModifiedFiles(repoName: string) {
+    try {
+      const repoFolder = workspace.getConfiguration('openeuler_vscode_plugin')?.get('target_folder');
+      if (!repoFolder) {
+        return [];
+      }
+
+      const cleanRepoName = repoName.replace('.git', '');
+      const repoPath = path.join(repoFolder as string, cleanRepoName);
+      console.info(`repoPath = ${repoPath}`);
+      // 获取详细修改文件列表
+      const output = await new Promise<string>((resolve, reject) => {
+        exec('git status --porcelain', { cwd: repoPath }, (error, stdout) => {
+          error ? reject(error) : resolve(stdout);
+        });
+      });
+      // 解析git状态输出
+      const modifiedFiles = output
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .map(line => {
+          // 处理重命名情况：R  file1 -> file2
+          const parts = line.slice(3).split(' -> ');
+          return parts.length > 1 ? parts[1] : parts[0];
+        });
+      console.info(`modifiedFiles=${modifiedFiles}`);
+      return modifiedFiles;
+
+    } catch (error) {
+      return {
+        suc: false,
+        msg: `获取修改文件失败: ${error instanceof Error ? error.message : error}`,
+        data: { modifiedFiles: [] }
+      };
+    }
+  }
+
+  @callable()
+  async commitFiles(repo: string, filePaths: string[], commitMessage: string) {
+    try {
+      // Validate parameters
+      if (!filePaths?.length || !commitMessage?.trim()) {
+        return 'Invalid parameters: file paths and commit message cannot be empty';
+      }
+      
+      const targetFolder = workspace.getConfiguration('openeuler_vscode_plugin')?.get('target_folder');
+      if (!targetFolder) {
+        return 'Target folder not configured';
+      }
+      
+      const repoFolder = path.join(targetFolder as string, repo);
+      if (!fs.existsSync(repoFolder)) {
+        return `Repository folder does not exist: ${repoFolder}`;
+      }
+
+      // Git add files
+      await new Promise<void>((resolve, reject) => {
+        exec(`git add ${filePaths.map(p => `"${p}"`).join(' ')}`, { 
+          cwd: repoFolder 
+        }, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(`git add failed: ${stderr || error.message}`));
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      // Git commit
+      const result = await new Promise<string>((resolve, reject) => {
+        exec(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, {
+          cwd: repoFolder
+        }, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(`git commit failed: ${stderr || error.message}`));
+          } else {
+            resolve('Commit successful');
+          }
+        });
+      });
+
+      return result;
+
+    } catch (error) {
+      return `Error during commit: ${error instanceof Error ? error.message : error}`;
+    }
+  }
   @callable()
   async configPersonalAccessToken(accessToken: string) {
     const cmd = `oegitext config -token ${accessToken}`;
@@ -224,7 +345,7 @@ function openFolder(folderPath: string, cwd: string) {
   } else if (platform === 'darwin') {
     command = `open ${folderPath}`;
   } else if (platform === 'linux') {
-    command = `xdg-open ${folderPath}`;
+    command = `nautilus ${folderPath}`;
   } else {
     return `不支持的操作系统: ${platform}`;
   }

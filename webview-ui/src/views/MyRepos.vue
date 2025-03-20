@@ -37,20 +37,56 @@
             value-key="value" class="w-350px" placeholder="请选择分支" />
         </div>
         <div class="repoButtons">
-          <el-button @click="cloneRepo(item, cloneForm.branch[i])"
-            class="action-button">克隆仓库</el-button>
+          <el-button @click="cloneRepo(item, cloneForm.branch[i])" class="action-button">克隆仓库</el-button>
           <el-button @click="openLink(item.fullName)" class="action-button">打开链接</el-button>
-          <el-button @click="openInFolder(item, cloneForm.branch[i])"
-            class="action-button">在文件夹中打开</el-button>
-          <el-button @click="openInIde(item, cloneForm.branch[i])"
-            class="action-button">在VS-CODE中打开</el-button>
+          <el-button @click="openInFolder(item, cloneForm.branch[i])" class="action-button">在文件夹中打开</el-button>
+          <el-button @click="openInIde(item, cloneForm.branch[i])" class="action-button">在IDE中打开</el-button>
           <el-button @click="copyUrl(item.fullName)" class="action-button">复制仓库地址</el-button>
+          <el-button class="action-button" @click="openCommitCodeDialog(item.fullName)">
+            提交代码</el-button>
         </div>
       </el-card>
       <div class="div-list-blank wh-full f-c-c" v-if="listPlaceholder">
         {{ listPlaceholder }}
       </div>
     </div>
+    <el-dialog class="commit-dialog" v-model="commitCodeDialogVisible" width="600px" title="提交代码">
+      <el-form :model="commitInfo">
+        <!-- 顶部输入框 -->
+        <el-form-item label="提交信息" label-width="80px">
+          <el-input v-model="commitInfo.commitMessage" type="textarea" :rows="3" placeholder="请输入提交说明" maxlength="200"
+            show-word-limit />
+        </el-form-item>
+
+        <!-- 文件列表区域 -->
+        <div class="file-lists">
+          <div class="file-list">
+            <h4>待添加文件</h4>
+            <div class="file-items">
+              <div v-for="(file, index) in commitInfo.changedFiles" :key="index" class="file-item">
+                <span class="file-name">{{ file }}</span>
+                <el-button type="primary" link @click="addFiles(file)" size="small" icon="Plus" />
+              </div>
+            </div>
+          </div>
+
+          <div class="file-list">
+            <h4>已添加文件</h4>
+            <div class="file-items">
+              <div v-for="(file, index) in commitInfo.changeAdded" :key="index" class="file-item">
+                <span class="file-name">{{ file }}</span>
+                <el-button type="primary" link @click="removeFiles(file)" size="small" icon="Minus" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div slot="footer" class="dialog-footer">
+          <el-button @click="commitCodeDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleCommit" :disabled="!commitInfo.commitMessage || commitInfo.changeAdded.length === 0">提交</el-button>
+        </div>
+      </el-form>
+    </el-dialog>
     <div class="div-page">
       <el-pagination background layout="prev, pager, next" v-model:current-page="pageInfo.currentPage"
         :disabled="listLoading" :total="pageInfo.total" :page-size="pageInfo.pageSize"
@@ -80,13 +116,18 @@ const changeActiveTab = (val: string) => {
   activeTab.value = val;
   reqList(true);
 };
-
+let commitCodeDialogVisible = ref(false);
 const cfgStore = usePluginCfgStore();
 
 const listLoading = ref(false);
 const list = ref([] as any[]);
 
-
+const commitInfo = reactive({
+  repo: '',
+  commitMessage: '',
+  changeAdded: [] as string[],
+  changedFiles: [] as string[],
+})
 
 const pageInfo = reactive({
   currentPage: 1,
@@ -138,6 +179,41 @@ async function reqList(shouldClearPage: boolean) {
     }))
   ];
   pageInfo.total = Number(res?.dataHeaders?.total) || 0;
+}
+const handleCommit = async () => {
+  console.info(`add files = ${commitInfo.changeAdded}`);
+  console.info(`commitInfo.commitMessage = ${commitInfo.commitMessage}`);
+  const res = await useCall('WebviewApi.commitFiles', commitInfo.repo ,commitInfo.changeAdded, commitInfo.commitMessage);
+  console.info(`res = ${res}`);
+}
+
+async function openCommitCodeDialog(ownerSlashRepo: string) {
+  if (!ownerSlashRepo) {
+    return;
+  }
+  const cfgTarget = cfgStore.targetFolder;
+  const currentPath = cfgTarget;
+  commitInfo.changedFiles = [];
+  commitInfo.changeAdded = [];
+  try {
+    commitInfo.repo = ownerSlashRepo;
+    const files = await useCall('WebviewApi.getModifiedFiles', ownerSlashRepo, currentPath);
+
+    commitInfo.changedFiles = Array.isArray(files) ? files : [];
+    commitCodeDialogVisible.value = true;
+  } catch (error) {
+    console.error('getModifiedFiles error:', error);
+  }
+}
+
+function addFiles(file: string) {
+  commitInfo.changedFiles = commitInfo.changedFiles.filter(item => item !== file);
+  commitInfo.changeAdded.push(file);
+}
+
+function removeFiles(file: string) {
+  commitInfo.changedFiles.push(file);
+  commitInfo.changeAdded = commitInfo.changeAdded.filter(item => item !== file);
 }
 
 const loadBranchData = async (item: any) => {
@@ -337,7 +413,128 @@ onUnmounted(() => {
   border: 1px solid #e4e4e4;
 }
 
-.repoButtons{
+.repoButtons {
   margin-top: 20px;
 }
+
+.dialog-footer {
+  margin-top: 20px;
+  margin-right: 20px;
+  bottom: 20px;
+  right: 20px;
+}
+
+.commit-dialog {
+  .el-dialog__body {
+    padding: 24px;
+  }
+
+  .el-dialog__header {
+    border-bottom: 1px solid var(--el-border-color-light);
+    margin-right: 0;
+  }
+
+  .file-lists {
+    display: flex;
+    gap: 24px;
+    margin-top: 16px;
+  }
+
+  .file-list {
+    flex: 1;
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 6px;
+    padding: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: var(--el-bg-color-page);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+    h4 {
+      margin: 0 0 12px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--el-border-color-lighter);
+      color: var(--el-text-color-primary);
+      font-size: 15px;
+      font-weight: 500;
+    }
+  }
+
+  .file-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background-color: var(--el-bg-color);
+    border-radius: 6px;
+    transition: all 0.2s;
+    border: 1px solid var(--el-border-color-lighter);
+
+    &:hover {
+      background-color: var(--el-fill-color-light);
+      border-color: var(--el-color-primary-light-5);
+    }
+
+    .file-name {
+      flex: 1;
+      font-size: 14px;
+      color: var(--el-text-color-regular);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+    }
+
+    .el-button {
+      margin-left: 8px;
+      transition: transform 0.2s;
+      
+      &:hover {
+        transform: scale(1.1);
+      }
+    }
+  }
+
+  .el-form-item {
+    margin-bottom: 0;
+    
+    .el-form-item__label {
+      font-weight: 500;
+      color: var(--el-text-color-primary);
+    }
+  }
+
+  .el-textarea {
+    margin-bottom: 16px;
+    border-radius: 6px;
+    border: 1px solid var(--el-border-color-light);
+    transition: border-color 0.2s;
+
+    &:focus-within {
+      border-color: var(--el-color-primary);
+      box-shadow: 0 0 0 2px var(--el-color-primary-light-7);
+    }
+  }
+
+  .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 1px solid var(--el-border-color-lighter);
+    margin-top: 24px;
+    gap: 12px;
+
+    .el-button {
+      min-width: 80px;
+      border-radius: 6px;
+    }
+  }
+}
+
 </style>
