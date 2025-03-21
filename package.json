@@ -96,7 +96,7 @@
     "dev:web": "cd webview-ui && npm run dev",
     "dev:webview": "cd webview-ui && npm run build:watch",
     "build:webview": "cd webview-ui && npm run build",
-    "pack:vsix": "npm build && vsce package --no-dependencies",
+    "pack:vsix": "npm run build && vsce package --no-dependencies",
     "vscode:prepublish": "npm run build-rollup",
     "compile": "tsc -p ./",
     "watch": "npm run clear:out && tsc -watch -p ./",

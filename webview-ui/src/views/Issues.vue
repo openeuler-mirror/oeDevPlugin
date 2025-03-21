@@ -31,6 +31,12 @@
           <span>{{ item.user.name }}&nbsp;创建于&nbsp;{{ dayjs(item.created_at).format('YYYY-MM-DD HH:mm') }}</span>
           <span v-if="item.assignee" class="underline">负责人：{{item.assignee.name }}</span>
         </div>
+        <div class="common-card-footer">
+          <el-button v-if="['openeuler', 'src-openeuler'].includes(item.repository?.namespace?.path || '')"
+           text bg class="action-button" @click.stop="toRouteRepo(item)">
+            跳转repo
+          </el-button>
+        </div>
       </el-card>
       <div class="issues-list-blank wh-full f-c-c" v-if="listPlaceholder">
         {{ listPlaceholder }}
@@ -46,15 +52,16 @@
 <script lang="ts" setup>
 import { dayjs } from 'element-plus';
 import { usePluginCfgStore } from '@/store/modules/pluginCfg';
+import { useOeReposStore } from '@/store/modules/oeRepos';
 import { httpRequest } from '@/utils/request';
 import { useCall } from '@/utils/apiClient';
 import TabsBar from '@/components/TabsBar.vue';
 
 const STATUS_MAP = new Map([
-  ['open', {t: '开启的', c: '#67c23a'}],
-  ['closed', {t: '已关闭', c: '#909399'}],
-  ['rejected', {t: '拒绝的', c: '#f56c6c'}],
-  ['progressing', {t: '进行中', c: '#409eff'}]
+  ['open', {t: '开启的', c: '#35b154'}],
+  ['closed', {t: '已关闭', c: '#333333'}],
+  ['rejected', {t: '拒绝的', c: '#a02c2c'}],
+  ['progressing', {t: '进行中', c: '#004488'}]
 ]);
 
 const TABS = [
@@ -72,6 +79,7 @@ const changeActiveTab = (val: string) => {
 };
 
 const cfgStore = usePluginCfgStore();
+const repoStore = useOeReposStore();
 
 const isOeOnly = ref(false);
 const listLoading = ref(false);
@@ -138,6 +146,24 @@ function openLink(url: string) {
   }
 }
 
+function toRouteRepo(item) {
+  const ownerPath = item?.repository?.namespace?.path;
+  if (!ownerPath) {
+    return;
+  }
+  let treeItemId = '';
+  if (ownerPath === 'openeuler') {
+    treeItemId = 'my_repo-oe'
+  }
+  if (ownerPath === 'src-openeuler') {
+    treeItemId = 'my_repo-src'
+  }
+  if (treeItemId) {
+    repoStore.setToRepoTarget(item.repository.full_name || '');
+    useCall('WebviewApi.revealTreeNode', treeItemId);
+  }
+}
+
 const listPlaceholder = computed(() => {
   if (listLoading.value || list.value.length) {
     return '';
@@ -153,6 +179,12 @@ watch(() => cfgStore.personalAccessToken, tkn => {
 </script>
 
 <style lang="scss" scoped>
+@use '@/assets/style/common-vars.scss' as *;
+
+:deep(.common-card-footer) {
+  @extend %common-card-footer;
+}
+
 .issues-nav {
   width: 100%;
   display: flex;
