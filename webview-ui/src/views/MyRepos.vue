@@ -1,11 +1,11 @@
 <!--
 /* Copyright (c) 2024-2024 Huawei Technologies Co., Ltd. All right reserved.
  * oeDevPlugin is licensed under Mulan PSL v2.
- * You can use this software according to the terms and conditions of the Mulan PSL v2. 
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *             http://license.coscl.org.cn/MulanPSL2 
+ *             http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.  
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
  * See the Mulan PSL v2 for more details.
  * =================================================================================================================== */
 -->
@@ -36,15 +36,22 @@
           <el-select-v2 v-model="cloneForm.branch[i]" filterable :options="branchesList" @focus="loadBranchData(item)"
             value-key="value" class="w-350px" placeholder="请选择分支" />
         </div>
-        <div class="repoButtons">
-          <el-button @click="cloneRepo(item, cloneForm.branch[i])"
-            class="action-button">克隆仓库</el-button>
-          <el-button @click="openLink(item.fullName)" class="action-button">打开链接</el-button>
-          <el-button @click="openInFolder(item, cloneForm.branch[i])"
-            class="action-button">在文件夹中打开</el-button>
-          <el-button @click="openInIde(item, cloneForm.branch[i])"
-            class="action-button">在VS-CODE中打开</el-button>
-          <el-button @click="copyUrl(item.fullName)" class="action-button">复制仓库地址</el-button>
+        <div class="common-card-footer">
+          <el-button text bg class="action-button" @click="cloneRepo(item, cloneForm.branch[i])">
+            克隆仓库
+          </el-button>
+          <el-button text bg class="action-button" @click="openLink(item.fullName)">
+            打开链接
+          </el-button>
+          <el-button text bg class="action-button" @click="openInFolder(item, cloneForm.branch[i])">
+            打开文件夹
+          </el-button>
+          <el-button text bg class="action-button" @click="openInIde(item, cloneForm.branch[i])">
+            在IDE中打开
+          </el-button>
+          <el-button text bg class="action-button" @click="copyUrl(item.fullName)">
+            复制仓库地址
+          </el-button>
         </div>
       </el-card>
       <div class="div-list-blank wh-full f-c-c" v-if="listPlaceholder">
@@ -169,7 +176,6 @@ async function reqBranchList(repoInfo: any) {
 
 async function cloneRepo(repoInfo: any, branch: string) {
   const fullName = repoInfo.fullName;
-  console.info(`fullName ${fullName}`);
   const loadingInst = ElLoading.service({ fullscreen: true });
   const res: Record<string, unknown> = await useCall('WebviewApi.doCloneRepo', fullName, branch, cfgStore.targetFolder);
   loadingInst.close();
@@ -178,13 +184,11 @@ async function cloneRepo(repoInfo: any, branch: string) {
 
 async function openInFolder(repoInfo: any, branch: string) {
   const fullName = repoInfo.fullName;
-  console.info(`fullName ${fullName}`);
   await useCall('WebviewApi.doOpenInFolder', fullName, branch, cfgStore.targetFolder);
 }
 
 async function openInIde(repoInfo: any, branch: string) {
   const fullName = repoInfo.fullName;
-  console.info(`fullName ${fullName}`);
   ElMessage.info(await useCall("WebviewApi.openInIde", fullName, branch, cfgStore.targetFolder));
 }
 
@@ -236,6 +240,13 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@use '@/assets/style/common-vars.scss' as *;
+
+:deep(.common-card-footer) {
+  @extend %common-card-footer;
+  margin-top: 8px;
+}
+
 .warp {
   width: 100%;
   height: calc(100% - 44px);
@@ -327,17 +338,5 @@ onUnmounted(() => {
 .div-list-blank {
   color: var(--el-color-info);
   font-size: 32px;
-}
-
-.action-button {
-  padding: 5px 5px;
-  font-size: 14px;
-  border-radius: 5px;
-  margin-left: 10px;
-  border: 1px solid #e4e4e4;
-}
-
-.repoButtons{
-  margin-top: 20px;
 }
 </style>

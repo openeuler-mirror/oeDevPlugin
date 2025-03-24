@@ -9,7 +9,7 @@
  * =================================================================================================================== */
 
 import { commands, env, workspace, EventEmitter, Uri } from 'vscode';
-import type { ExtensionContext, Webview } from 'vscode';
+import type { ExtensionContext, TreeItem, TreeView, Webview } from 'vscode';
 import { CecServer } from 'cec-client-server';
 import { controller, callable, getControllers, subscribable } from 'cec-client-server/decorator';
 import { VueBoilerplatePanel } from '../panels/VueBoilerplatePanel';
@@ -17,11 +17,14 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { isOpenEuler, runRpmBuildScript } from '../utils/utils';
+import { MyTreeDataProvider } from '../panels/MyTreeDataProvider';
 
 let extensionContext: ExtensionContext | undefined;
+let treeView: TreeView<TreeItem> | undefined;
 
-export function setExtensionContextForWebviewService(context: ExtensionContext) {
+export function setExtensionImplForWebviewService(context: ExtensionContext, treeViewImpl: TreeView<TreeItem>) {
   extensionContext = context;
+  treeView = treeViewImpl;
 }
 
 export const webviewRouterChangeEmitter = new EventEmitter<string>();
@@ -50,6 +53,22 @@ export class WebviewApiController {
   openExternal(url: string) {
     if (url) {
       env.openExternal(Uri.parse(url));
+    }
+  }
+
+  // webiview端调用的更改左侧树中选中节点的方法
+  @callable()
+  revealTreeNode(id: string) {
+    const target = MyTreeDataProvider.getTreeItemById(id);
+    if (!treeView || !target) {
+      return;
+    }
+    treeView.reveal(target, {
+      select: true
+    });
+    // If the node has a command, execute it
+    if (target.command) {
+      commands.executeCommand(target.command.command, ...(target.command.arguments || []));
     }
   }
 

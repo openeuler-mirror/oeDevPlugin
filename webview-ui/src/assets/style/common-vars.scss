@@ -1,0 +1,18 @@
+// 卡片底部通用按钮
+%common-card-footer {
+  margin-top: 6px;
+  margin-bottom: -8px;
+
+  .action-button {
+    padding: 6px 16px;
+    margin: 4px 10px 0 0;
+    font-size: 14px;
+    border-radius: 26px;
+
+    &.is-text > span,
+    &.is-text:not(.is-disabled):active > span,
+    &.is-text:not(.is-disabled):focus > span {
+      color: inherit;
+    }
+  }
+}
