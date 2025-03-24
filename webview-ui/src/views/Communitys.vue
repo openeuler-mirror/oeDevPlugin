@@ -44,10 +44,10 @@
           <el-button text bg class="action-button" @click="openLink(item.ownerSlashRepo)">
             打开链接
           </el-button>
-          <el-button text bg class="action-button" @click="openInFolder(item.repo, cloneForm.branch[i], cloneForm.currentPath)">
+          <el-button text bg class="action-button" @click="openInFolder(item.ownerSlashRepo, cloneForm.branch[i], cloneForm.currentPath)">
             在文件夹中打开
           </el-button>
-          <el-button text bg class="action-button" @click="openInIde(item.repo, cloneForm.branch[i], cloneForm.currentPath)">
+          <el-button text bg class="action-button" @click="openInIde(item.ownerSlashRepo, cloneForm.branch[i], cloneForm.currentPath)">
             在VS-CODE中打开
           </el-button>
           <el-button text bg class="action-button" @click="copyUrl(item.ownerSlashRepo)">
