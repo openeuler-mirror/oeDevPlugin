@@ -20,7 +20,9 @@ interface RepoInfo {
 
 export const useOeReposStore = defineStore('oeRepos', {
   state: () => ({
-    repoInfoList: [] as RepoInfo[]
+    repoInfoList: [] as RepoInfo[],
+    // 用于从pr/issue页跳转至“我的repo”时临时储存目标repo名称（ownerSlashRepo）
+    toRepoTarget: ''
   }),
 
   actions: {
@@ -61,6 +63,10 @@ export const useOeReposStore = defineStore('oeRepos', {
         await this.reqRepoInfoList();
       }
       return this.repoInfoList;
+    },
+
+    setToRepoTarget(ownerSlashRepo: string) {
+      this.toRepoTarget = ownerSlashRepo || '';
     }
   },
 });

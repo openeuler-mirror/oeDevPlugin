@@ -12,7 +12,7 @@ modified: change naive-ui to element-plus
 1. 安装全局依赖: [@vscode/vsce](https://www.npmjs.com/package/@vscode/vsce)
 
 ```bash
-pnpm add -g @vscode/vsce
+npm install -g @vscode/vsce
 
 # 不然后面的调用需要用 npx 命令这种去执行，看你们喜好了
 # 工程内的本地打包命令会调用这个模块，所以需要全局安装，发布也依赖 vsce 提供的 cli 去做的
@@ -23,20 +23,20 @@ pnpm add -g @vscode/vsce
 
 ```bash
 # 该命令同时处理好整个工程开发所需要的依赖
-pnpm install:all
+npm run install:all
 ```
 
 3. 运行工程
 
 ```bash
 # 纯 Web开发，就是常规浏览器网页开发，有热更新
-pnpm dev:web
+npm run dev:web
 
 
 # VS Code 插件开发,可以 debug 和 渲染 Webview
 # 代码会随时编译，若是进入debug 窗口后的改动，需要 reload webview 才能看到最新改动
 # 第一次进入 debug ，默认就是代码编译后的最新的改动
-pnpm dev
+npm run dev
 
 ```
 
@@ -45,7 +45,7 @@ pnpm dev
 ```bash
 # 本地打包并调用 vsce 模块打出一个本地插件，存放在根目录
 # 类似：vscode-webview-vite-vue-boilerplate-0.0.1.vsix
-pnpm pack:vsix
+npm run pack:vsix
 ```
 ## FAQ (from vscode-webview-vite-vue-boilerplate project)
 

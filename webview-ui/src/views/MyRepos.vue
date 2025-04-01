@@ -1,11 +1,11 @@
 <!--
 /* Copyright (c) 2024-2024 Huawei Technologies Co., Ltd. All right reserved.
  * oeDevPlugin is licensed under Mulan PSL v2.
- * You can use this software according to the terms and conditions of the Mulan PSL v2. 
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *             http://license.coscl.org.cn/MulanPSL2 
+ *             http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.  
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
  * See the Mulan PSL v2 for more details.
  * =================================================================================================================== */
 -->
@@ -36,14 +36,25 @@
           <el-select-v2 v-model="cloneForm.branch[i]" filterable :options="branchesList" @focus="loadBranchData(item)"
             value-key="value" class="w-350px" placeholder="请选择分支" />
         </div>
-        <div class="repoButtons">
-          <el-button @click="cloneRepo(item, cloneForm.branch[i])" class="action-button">克隆仓库</el-button>
-          <el-button @click="openLink(item.fullName)" class="action-button">打开链接</el-button>
-          <el-button @click="openInFolder(item, cloneForm.branch[i])" class="action-button">在文件夹中打开</el-button>
-          <el-button @click="openInIde(item, cloneForm.branch[i])" class="action-button">在IDE中打开</el-button>
-          <el-button @click="copyUrl(item.fullName)" class="action-button">复制仓库地址</el-button>
+        <div class="common-card-footer">
+          <el-button text bg class="action-button" @click="cloneRepo(item, cloneForm.branch[i])">
+            克隆仓库
+          </el-button>
+          <el-button text bg class="action-button" @click="openLink(item.fullName)">
+            打开链接
+          </el-button>
+          <el-button text bg class="action-button" @click="openInFolder(item, cloneForm.branch[i])">
+            打开文件夹
+          </el-button>
+          <el-button text bg class="action-button" @click="openInIde(item, cloneForm.branch[i])">
+            在IDE中打开
+          </el-button>
+          <el-button text bg class="action-button" @click="copyUrl(item.fullName)">
+            复制仓库地址
+          </el-button>
           <el-button class="action-button" @click="openCommitCodeDialog(item.fullName)">
-            提交代码</el-button>
+            提交代码
+          </el-button>
         </div>
       </el-card>
       <div class="div-list-blank wh-full f-c-c" v-if="listPlaceholder">
@@ -58,6 +69,21 @@
             show-word-limit />
         </el-form-item>
 
+        <el-form-item label="远程仓库" label-width="80px">
+          <el-select v-model="commitInfo.remote" placeholder="请选择远程仓库" class="w-full"  value-key="value">
+            <el-option
+              v-for="item in remotesList"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="选择分支" label-width="80px">
+          <el-select-v2 v-model="commitInfo.branch" filterable placeholder="请选择分支" :options="branchesList" @focus="loadBranch" class="w-full"/>
+      
+        </el-form-item>
         <!-- 文件列表区域 -->
         <div class="file-lists">
           <div class="file-list">
@@ -125,6 +151,8 @@ const list = ref([] as any[]);
 const commitInfo = reactive({
   repo: '',
   commitMessage: '',
+  remote:'',
+  branch:'',
   changeAdded: [] as string[],
   changedFiles: [] as string[],
 })
@@ -142,6 +170,7 @@ const cloneForm = reactive({
 })
 
 const branchesList = ref([] as string[]);
+const remotesList = ref([] as string[]);
 
 async function reqList(shouldClearPage: boolean) {
   if (listLoading.value) {
@@ -181,10 +210,9 @@ async function reqList(shouldClearPage: boolean) {
   pageInfo.total = Number(res?.dataHeaders?.total) || 0;
 }
 const handleCommit = async () => {
-  console.info(`add files = ${commitInfo.changeAdded}`);
-  console.info(`commitInfo.commitMessage = ${commitInfo.commitMessage}`);
-  const res = await useCall('WebviewApi.commitFiles', commitInfo.repo ,commitInfo.changeAdded, commitInfo.commitMessage);
-  console.info(`res = ${res}`);
+  const res = await useCall('WebviewApi.commitFiles', commitInfo.repo ,commitInfo.changeAdded, commitInfo.commitMessage,commitInfo.branch,commitInfo.remote);
+  ElMessage.info(String(res));
+  commitCodeDialogVisible.value = false;
 }
 
 async function openCommitCodeDialog(ownerSlashRepo: string) {
@@ -195,10 +223,13 @@ async function openCommitCodeDialog(ownerSlashRepo: string) {
   const currentPath = cfgTarget;
   commitInfo.changedFiles = [];
   commitInfo.changeAdded = [];
+  remotesList.value = [];
+  branchesList.value = [];
   try {
     commitInfo.repo = ownerSlashRepo;
     const files = await useCall('WebviewApi.getModifiedFiles', ownerSlashRepo, currentPath);
-
+    const rest  = await useCall<string[]>('WebviewApi.getGitRemotes',`${currentPath}/${ownerSlashRepo}`);
+    remotesList.value = rest;
     commitInfo.changedFiles = Array.isArray(files) ? files : [];
     commitCodeDialogVisible.value = true;
   } catch (error) {
@@ -206,6 +237,29 @@ async function openCommitCodeDialog(ownerSlashRepo: string) {
   }
 }
 
+async function loadBranch(){
+  const repoInfo = commitInfo.remote;
+  if(!repoInfo){
+    ElMessage.error("请先选择远程仓!");
+    return;
+  }
+  const result = repoInfo.replace("https://gitee.com/", "").replace(".git", "");
+  console.log(result); 
+  const branches = await httpRequest(`repos/${result}/branches`, {
+    params: {
+      access_token: cfgStore.personalAccessToken,
+      page: 1,
+      per_page: 20
+    }
+  }).catch(() => { });
+  branchesList.value = [
+    ...branchesList.value,
+    ...(branches?.dataList || []).map(v => ({
+      value: v.name,
+      label: v.name
+    }))
+  ];
+}
 function addFiles(file: string) {
   commitInfo.changedFiles = commitInfo.changedFiles.filter(item => item !== file);
   commitInfo.changeAdded.push(file);
@@ -245,7 +299,6 @@ async function reqBranchList(repoInfo: any) {
 
 async function cloneRepo(repoInfo: any, branch: string) {
   const fullName = repoInfo.fullName;
-  console.info(`fullName ${fullName}`);
   const loadingInst = ElLoading.service({ fullscreen: true });
   const res: Record<string, unknown> = await useCall('WebviewApi.doCloneRepo', fullName, branch, cfgStore.targetFolder);
   loadingInst.close();
@@ -254,13 +307,11 @@ async function cloneRepo(repoInfo: any, branch: string) {
 
 async function openInFolder(repoInfo: any, branch: string) {
   const fullName = repoInfo.fullName;
-  console.info(`fullName ${fullName}`);
   await useCall('WebviewApi.doOpenInFolder', fullName, branch, cfgStore.targetFolder);
 }
 
 async function openInIde(repoInfo: any, branch: string) {
   const fullName = repoInfo.fullName;
-  console.info(`fullName ${fullName}`);
   ElMessage.info(await useCall("WebviewApi.openInIde", fullName, branch, cfgStore.targetFolder));
 }
 
@@ -312,6 +363,13 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@use '@/assets/style/common-vars.scss' as *;
+
+:deep(.common-card-footer) {
+  @extend %common-card-footer;
+  margin-top: 8px;
+}
+
 .warp {
   width: 100%;
   height: calc(100% - 44px);

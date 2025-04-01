@@ -15,7 +15,11 @@ import { window, commands, type ExtensionContext, workspace } from "vscode";
 import { registerControllers } from "cec-client-server/decorator";
 import { VueBoilerplatePanel } from "./panels/VueBoilerplatePanel";
 import { MyTreeDataProvider } from './panels/MyTreeDataProvider';
-import { WebviewApiController, setExtensionContextForWebviewService, webviewRouterChangeEmitter } from "./service/webview-service";
+import {
+  WebviewApiController,
+  setExtensionImplForWebviewService,
+  webviewRouterChangeEmitter
+} from "./service/webview-service";
 
 // init
 registerControllers([WebviewApiController]);
@@ -30,8 +34,9 @@ export function activate(context: ExtensionContext) {
   // Use the console to output diagnostic information (console.log) and errors (console.error)
   // This line of code will only be executed once when your extension is activated
 
-  setExtensionContextForWebviewService(context);
-  window.registerTreeDataProvider('openeuler_plugin_expolerTreeView', new MyTreeDataProvider());
+  const treeDataProvider = new MyTreeDataProvider();
+  window.registerTreeDataProvider('openeuler_plugin_expolerTreeView', treeDataProvider);
+  setExtensionImplForWebviewService(context, window.createTreeView('openeuler_plugin_expolerTreeView', { treeDataProvider }));
 
   const showPageCommand = commands.registerCommand(
     "openeuler_vscode_plugin.pageShow",

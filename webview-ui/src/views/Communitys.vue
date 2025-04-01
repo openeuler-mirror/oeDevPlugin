@@ -22,7 +22,7 @@
     <div class="div-list" v-loading="listLoading">
       <el-card class="repo-card mt-16px" v-for="(item, i) in filteredRepoList" :key="item.ownerSlashRepo">
         <div class="item-card-top">
-          <span class="item-tag" :style="{ backgroundColor: '#409eff' }">
+          <span class="item-tag" :style="{ backgroundColor: '#004080' }">
             {{ '公开' }}
           </span>
           <span class="item-tt">
@@ -37,18 +37,29 @@
           <el-select-v2 v-model="cloneForm.branch[i]" filterable :options="branchesList" value-key="value"
             @focus="loadBranchData(item)" class="w-350px" placeholder="请选择分支" />
         </div>
-        <div class="repo-buttons">
-          <el-button @click="cloneRepo(item.ownerSlashRepo, cloneForm.branch[i], cloneForm.currentPath)"
-            class="action-button">克隆仓库</el-button>
-          <el-button @click="openLink(item.ownerSlashRepo)" class="action-button">打开链接</el-button>
-          <el-button @click="openInFolder(item.ownerSlashRepo, cloneForm.branch[i], cloneForm.currentPath)"
-            class="action-button">在文件夹中打开</el-button>
-          <el-button @click="openInIde(item.ownerSlashRepo, cloneForm.branch[i], cloneForm.currentPath)"
-            class="action-button">在VS-CODE中打开</el-button>
-          <el-button @click="copyUrl(item.ownerSlashRepo)" class="action-button">复制仓库地址</el-button>
-          <el-button @click="openDialog(item.ownerSlashRepo, item.owner)" class="action-button">fork 仓库</el-button>
-          <el-button v-if="cfgStore.isVscodeInOpenEuler && activeTab === 'src-openeuler'" class="action-button"
-            @click="doRpmbuild(item.ownerSlashRepo, cloneForm.branch[i])">本地构建</el-button>
+        <div class="common-card-footer">
+          <el-button text bg class="action-button" @click="cloneRepo(item.ownerSlashRepo, cloneForm.branch[i], cloneForm.currentPath)">
+            克隆仓库
+          </el-button>
+          <el-button text bg class="action-button" @click="openLink(item.ownerSlashRepo)">
+            打开链接
+          </el-button>
+          <el-button text bg class="action-button" @click="openInFolder(item.repo, cloneForm.branch[i], cloneForm.currentPath)">
+            在文件夹中打开
+          </el-button>
+          <el-button text bg class="action-button" @click="openInIde(item.repo, cloneForm.branch[i], cloneForm.currentPath)">
+            在VS-CODE中打开
+          </el-button>
+          <el-button text bg class="action-button" @click="copyUrl(item.ownerSlashRepo)">
+            复制仓库地址
+          </el-button>
+          <el-button text bg class="action-button" @click="openDialog(item.ownerSlashRepo, item.owner)">
+            fork仓库
+          </el-button>
+          <el-button v-if="cfgStore.isVscodeInOpenEuler && activeTab === 'src-openeuler'"
+            text bg class="action-button" @click="doRpmbuild(item.ownerSlashRepo, cloneForm.branch[i])">
+            本地构建
+          </el-button>
         </div>
       </el-card>
       <div class="div-list-blank wh-full f-c-c" v-if="listPlaceholder">
@@ -92,6 +103,7 @@ import TabsBar from '@/components/TabsBar.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 const repoStore = useOeReposStore();
+
 let dialogVisible = ref(false);
 let commitCodeDialogVisible = ref(false);
 const TABS = [
@@ -150,6 +162,13 @@ const repoOptions = computed(() => {
 
 const branchesList = ref([] as string[]);
 
+// 从pr/issue页面的toRepo按钮而来，则需要提前赋值filterValue给初始化请求使用
+const initialFilterValue = repoStore.toRepoTarget;
+if (initialFilterValue) {
+  filterValue.value = initialFilterValue;
+  repoStore.setToRepoTarget('');
+}
+
 watchEffect(() => {
   const cfgTarget = cfgStore.targetFolder;
   if (cfgTarget !== cloneForm.currentPath) {
@@ -163,7 +182,9 @@ const filterChange = async () => {
     await reqRepoInfoList();
   } else {
     const [owner, repo] = filterValue.value.split('/');
+    listLoading.value = true;
     const resp = await httpRequest(`/repos/${owner}/${repo}`);
+    listLoading.value = false;
     const repoInfo = [] as RepoInfo[];
     repoInfo.push({
       owner: owner,
@@ -203,7 +224,6 @@ const loadBranchData = async (repoInfo: RepoInfo) => {
 const branchesListLoading = ref(false);
 
 async function reqRepoInfoList() {
-
   if (listLoading.value) {
     return;
   }
@@ -294,7 +314,7 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
   if (tkn && repoList.value.length === 0) {
     const loadingInst = ElLoading.service({ fullscreen: true });
     repoList.value = await repoStore.getRepoInfoList();
-    await reqRepoInfoList();
+    await filterChange();
     loadingInst.close();
   }
 }, { immediate: true });
@@ -376,6 +396,13 @@ async function forkRepo() {
 </script>
 
 <style lang="scss" scoped>
+@use '@/assets/style/common-vars.scss' as *;
+
+:deep(.common-card-footer) {
+  @extend %common-card-footer;
+  margin-top: 0;
+}
+
 .warp {
   width: 100%;
   height: calc(100% - 64px);

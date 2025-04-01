@@ -25,8 +25,7 @@
           <div class="pr-tag" :style="{ backgroundColor: STATUS_MAP.get(item.state)?.c }">
             !{{ item.number }} {{ STATUS_MAP.get(item.state)?.t }}
           </div>
-          <el-input class="pr-tt" :value="item.title" v-model="inputList[i]"
-            @change="changePRtitle(inputList[i], item.html_url, i)"></el-input>
+          <div class="pr-tt">{{ item.title }}</div>
         </div>
         <div class="pr-flow">
           <span>{{ item.head.repo.full_name }}</span>
@@ -36,12 +35,23 @@
         <div class="pr-time">
           <span>创建于{{ dayjs(item.created_at).format('YYYY-MM-DD HH:mm') }}</span>
           <span v-if="item.merged_at" class="underline">合并于{{ dayjs(item.merged_at).format('YYYY-MM-DD HH:mm') }}</span>
-          <el-button class="action-button" @click="mergePullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state, item.mergeable)">
-            合入PR</el-button>
-          <el-button class="action-button" @click="closePullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state)">
-            关闭PR</el-button>
-          <el-button class="action-button" @click="openPullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state)">
-            打开PR</el-button>
+        </div>
+        <div class="common-card-footer">
+          <el-button text bg class="action-button" @click="changePRtitle(item, i)">
+            修改标题
+          </el-button>
+          <el-button text bg class="action-button" @click="mergePullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state, item.mergeable)">
+            合入PR
+          </el-button>
+          <el-button text bg class="action-button" @click="closePullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state)">
+            关闭PR
+          </el-button>
+          <el-button text bg class="action-button" @click="openPullRequest(item.base.repo.namespace.path, item.base.repo.path, item.number, item.state)">
+            打开PR
+          </el-button>
+          <el-button text bg class="action-button" @click="toRouteRepo(item)">
+            跳转repo
+          </el-button>
         </div>
       </el-card>
       <div class="pr-list-blank wh-full f-c-c" v-if="listPlaceholder">
@@ -63,9 +73,9 @@ import { httpRequest } from '@/utils/request';
 import { useCall } from '@/utils/apiClient';
 
 const STATUS_MAP = new Map([
-  ['open', { t: '开启', c: '#67c23a' }],
-  ['closed', { t: '已关闭', c: '#f56c6c' }],
-  ['merged', { t: '已合入', c: '#909399' }]
+  ['open', { t: '开启', c: '#35b154' }],
+  ['closed', { t: '已关闭', c: '#a02c2c' }],
+  ['merged', { t: '已合入', c: '#333333' }]
 ]);
 
 const cfgStore = usePluginCfgStore();
@@ -83,7 +93,6 @@ const repoOptions = computed(() => {
 const isMineOnly = ref(false);
 const prListLoading = ref(false);
 const prList = ref([] as any[]);
-const inputList = ref([] as string[]);
 const pageInfo = reactive({
   currentPage: 1,
   total: 0
@@ -107,25 +116,47 @@ async function reqPrList() {
   pageInfo.total = Number(res?.dataHeaders?.total) || 0;
 }
 
-async function changePRtitle(input: string, url: string, index: number) {
-  if (!input) {
+async function changePRtitle(item, idx) {
+  let promptRes;
+  try {
+    promptRes = await ElMessageBox.prompt('修改PR标题', '标题', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      customClass: 'common-confirm',
+      inputPlaceholder: '请输入PR标题',
+      inputValue: item.title || '',
+      inputValidator: (v: string) => v ? true : '标题不能为空'
+    });
+  } catch {
+    // canceled, ignored
+  }
+  promptRes = promptRes?.value;
+  if (!promptRes || promptRes === item.title) {
     return;
   }
-  const parts = url.split('/');
+  const url = item.html_url;
+  const parts = url?.split('/') || [];
   const owner = parts[3];
   const repo = parts[4];
   const number = parts[6];
-  prList.value[index].title = input;
-  const res = await httpRequest(`repos/${owner}/${repo}/pulls/${number}`, {
-    method: 'PATCH',
-    params: {
-      access_token: cfgStore.personalAccessToken,
-      title: input,
-      owner: owner,
-      repo: repo,
-      number: number,
-    },
-  })
+  const loadingInst = ElLoading.service({ fullscreen: true });
+  let res;
+  try {
+    res = await httpRequest(`repos/${owner}/${repo}/pulls/${number}`, {
+      method: 'PATCH',
+      params: {
+        access_token: cfgStore.personalAccessToken,
+        title: promptRes,
+        owner: owner,
+        repo: repo,
+        number: number,
+      },
+    })
+  } catch (err: any) {
+    ElMessage.error(`PR修改失败：${err?.message || '未知错误'}`)
+  }
+  loadingInst.close();
+  prList.value[idx].title = promptRes;
 }
 
 function onQuery(shouldClearPage: boolean) {
@@ -195,6 +226,24 @@ async function openPullRequest(fullName: string, repo: string, num: number, stat
   }
 }
 
+function toRouteRepo(item) {
+  const ownerPath = item?.base?.repo?.namespace?.path;
+  if (!ownerPath) {
+    return;
+  }
+  let treeItemId = '';
+  if (ownerPath === 'openeuler') {
+    treeItemId = 'my_repo-oe'
+  }
+  if (ownerPath === 'src-openeuler') {
+    treeItemId = 'my_repo-src'
+  }
+  if (treeItemId) {
+    repoStore.setToRepoTarget(item.base.repo.full_name || '');
+    useCall('WebviewApi.revealTreeNode', treeItemId);
+  }
+}
+
 watch(() => cfgStore.personalAccessToken, async tkn => {
   if (tkn && repoList.value.length === 0) {
     const loadingInst = ElLoading.service({ fullscreen: true });
@@ -205,6 +254,12 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
 </script>
 
 <style lang="scss" scoped>
+@use '@/assets/style/common-vars.scss' as *;
+
+:deep(.common-card-footer) {
+  @extend %common-card-footer;
+}
+
 .warp {
   width: 100%;
   height: calc(100% - 4px);
@@ -245,14 +300,11 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
   line-height: 24px;
 }
 
-.pr-tt .el-input__inner {
+.pr-tt {
   margin-left: 12px;
   font-size: 16px;
   line-height: 24px;
   font-weight: bold;
-  border: none;
-  background: transparent;
-  box-shadow: none;
 }
 
 .pr-flow {
@@ -292,14 +344,6 @@ watch(() => cfgStore.personalAccessToken, async tkn => {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.action-button {
-  padding: 5px 5px;
-  font-size: 14px;
-  border-radius: 5px;
-  margin-left: 10px;
-  border: 1px solid #e4e4e4;
 }
 
 .pr-list-blank {

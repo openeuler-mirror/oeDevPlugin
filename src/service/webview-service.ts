@@ -9,7 +9,7 @@
  * =================================================================================================================== */
 
 import { commands, env, workspace, EventEmitter, Uri } from 'vscode';
-import type { ExtensionContext, Webview } from 'vscode';
+import type { ExtensionContext, TreeItem, TreeView, Webview } from 'vscode';
 import { CecServer } from 'cec-client-server';
 import { controller, callable, getControllers, subscribable } from 'cec-client-server/decorator';
 import { VueBoilerplatePanel } from '../panels/VueBoilerplatePanel';
@@ -17,11 +17,15 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { isOpenEuler, runRpmBuildScript } from '../utils/utils';
+import { MyTreeDataProvider } from '../panels/MyTreeDataProvider';
+import * as vscode from 'vscode';
 
 let extensionContext: ExtensionContext | undefined;
+let treeView: TreeView<TreeItem> | undefined;
 
-export function setExtensionContextForWebviewService(context: ExtensionContext) {
+export function setExtensionImplForWebviewService(context: ExtensionContext, treeViewImpl: TreeView<TreeItem>) {
   extensionContext = context;
+  treeView = treeViewImpl;
 }
 
 export const webviewRouterChangeEmitter = new EventEmitter<string>();
@@ -50,6 +54,22 @@ export class WebviewApiController {
   openExternal(url: string) {
     if (url) {
       env.openExternal(Uri.parse(url));
+    }
+  }
+
+  // webiview端调用的更改左侧树中选中节点的方法
+  @callable()
+  revealTreeNode(id: string) {
+    const target = MyTreeDataProvider.getTreeItemById(id);
+    if (!treeView || !target) {
+      return;
+    }
+    treeView.reveal(target, {
+      select: true
+    });
+    // If the node has a command, execute it
+    if (target.command) {
+      commands.executeCommand(target.command.command, ...(target.command.arguments || []));
     }
   }
 
@@ -190,7 +210,6 @@ export class WebviewApiController {
 
       const cleanRepoName = repoName.replace('.git', '');
       const repoPath = path.join(repoFolder as string, cleanRepoName);
-      console.info(`repoPath = ${repoPath}`);
       // 获取详细修改文件列表
       const output = await new Promise<string>((resolve, reject) => {
         exec('git status --porcelain', { cwd: repoPath }, (error, stdout) => {
@@ -219,7 +238,7 @@ export class WebviewApiController {
   }
 
   @callable()
-  async commitFiles(repo: string, filePaths: string[], commitMessage: string) {
+  async commitFiles(repo: string, filePaths: string[], commitMessage: string,branch: string, remote: string) {
     try {
       // Validate parameters
       if (!filePaths?.length || !commitMessage?.trim()) {
@@ -262,7 +281,35 @@ export class WebviewApiController {
         });
       });
 
-      return result;
+      const username = await vscode.window.showInputBox({
+        prompt: '请输入 Gitee 账号',
+        ignoreFocusOut: true,
+      });
+      if (!username) return "请输入gitee账户名"; // 用户取消输入
+      const password = await vscode.window.showInputBox({
+        prompt: '请输入 Gitee 密码',
+        password: true, // 输入内容隐藏
+        ignoreFocusOut: true,
+      });
+      if (!password) return "请输入gitee账户密码";
+
+      const full_name = remote.replace("https://gitee.com/", "").replace(".git", "");
+      const repoUrl = `https://${username}:${password}@gitee.com/${full_name}.git`;
+      const command = `git push ${repoUrl} ${branch} --force`;
+
+      const pushResult = await new Promise<string>((resolve, reject) => {
+        exec(`${command}`, {
+          cwd: repoFolder
+        }, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(`git push failed: ${stderr || error.message}`));
+          } else {
+            resolve('Push successful');
+          }
+        });
+      });
+      console.log(`pushResult = ${pushResult}`);
+      return `commit success`;
 
     } catch (error) {
       return `Error during commit: ${error instanceof Error ? error.message : error}`;
@@ -272,6 +319,42 @@ export class WebviewApiController {
   async configPersonalAccessToken(accessToken: string) {
     const cmd = `oegitext config -token ${accessToken}`;
     return await runOeGitExtCommand(cmd);
+  }
+
+  @callable()
+  async getGitRemotes(dirPath: string) {
+    try {
+      // 检查路径是否存在
+      if (!fs.existsSync(dirPath)) {
+        return [];
+      }
+
+      // 执行git remote -v命令
+      const output = await new Promise<string>((resolve, reject) => {
+        exec('git remote -v', { cwd: dirPath }, (error, stdout, stderr) => {
+          error ? reject(stderr || error.message) : resolve(stdout);
+        });
+      });
+
+      // 解析输出，只保留push URL相同的仓库
+      const remotes: Record<string, {url: string}> = {};
+      output.split('\n').forEach(line => {
+        if (!line.trim()) {return [];}
+        
+        const [remote, url, type] = line.split(/\s+/);
+        if (type === '(push)') {
+          remotes[remote] = {url};
+        }
+      });
+
+      // 转换为数组格式返回
+      const result = Object.values(remotes).map(({ url }) => url);
+      console.log(result);
+      return result;
+
+    } catch (error) {
+      return  [];
+    }
   }
   @callable()
   async forkRepo(user: string, repo: string, path: string) {
