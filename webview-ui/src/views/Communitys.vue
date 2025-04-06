@@ -67,6 +67,10 @@
       </div>
     </div>
     <el-dialog v-model="dialogVisible" title="请确认仓库fork的目标空间" width="500">
+      <div class="repo-exist-tip" v-if="repoExistTip">
+        <el-icon><Warning /></el-icon>
+        <span>同名仓库已存在，将自动添加后缀</span>
+      </div>
       <el-form :model="form">
         <el-form-item :label="`${cfgStore.giteeUserInfo.name} @${cfgStore.giteeUserInfo.login}`"
           :label-width="300"></el-form-item>
@@ -95,12 +99,14 @@
   </div>
 </template>
 <script lang="ts" setup>
+import axios from 'axios';
 import { usePluginCfgStore } from '@/store/modules/pluginCfg';
 import { useOeReposStore } from '@/store/modules/oeRepos';
 import { httpRequest } from '@/utils/request';
 import { useCall, useSubscribable } from '@/utils/apiClient';
 import TabsBar from '@/components/TabsBar.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Warning } from '@element-plus/icons-vue';
 
 const repoStore = useOeReposStore();
 
@@ -361,6 +367,39 @@ async function copyUrl(ownerSlashRepo: string) {
   }
 }
 
+const repoExistTip = ref(false);
+
+async function checkRepoExist(repoName: string) {
+  try {
+    const res = await axios.get(
+      `https://gitee.com/api/v5/repos/${cfgStore.giteeUserInfo.login}/${repoName}`,
+      {
+        params: {
+          access_token: cfgStore.personalAccessToken
+        }
+      }
+    );
+    return res?.data.id !== undefined;
+  } catch (error) {
+    // 404表示仓库不存在，其他错误视为存在
+    return error?.response?.status !== 404;
+  }
+}
+
+async function findAvailableRepoName(baseName: string) {
+  let name = baseName;
+  let suffix = 0;
+  
+  while (suffix < 9) {
+    const exists = await checkRepoExist(name);
+    if (!exists) {
+      return name;
+    }
+    suffix++;
+    name = `${baseName}_${suffix}`;
+  }
+  return baseName;
+}
 
 async function openDialog(ownerSlashRepo: string, owner: string) {
   if (!ownerSlashRepo) {
@@ -370,9 +409,14 @@ async function openDialog(ownerSlashRepo: string, owner: string) {
   const repo = ownerSlashRepo.split('/')[1];
   form.repo = repo;
   form.owner = owner;
+  
+  const availableName = await findAvailableRepoName(repo);
+  form.name = availableName;
+  form.path = availableName;
+  
+  repoExistTip.value = availableName !== repo;
+  
   dialogVisible.value = true;
-  form.name = repo;
-  form.path = repo;
 }
 
 async function forkRepo() {
@@ -383,12 +427,26 @@ async function forkRepo() {
   }
   const owner = form.owner;
   const repo = form.repo;
+  const name = form.name;
   const path = form.path;
-  const response = JSON.parse(await useCall('WebviewApi.forkRepo', owner, repo, path));
-  if (response.err) {
-    ElMessage.error("已经存在同名的仓库（忽略大小写），Fork 失败");
+  
+  const response = JSON.parse(await useCall('WebviewApi.forkRepo', owner, repo, name, path));
+  if (response.out?.includes('已经存在同名的仓库')) {
+    ElMessage.error("Fork 失败，请尝试修改仓库名称");
     return;
   }
+
+  if (response.err) {
+    ElMessage.error("Fork 失败：" + (response.msg || "未知错误"));
+    return;
+  }
+
+  let treeItemId = 'my_project-all'
+  if (treeItemId) {
+    repoStore.setToRepoTarget(`${cfgStore.giteeUserInfo.login}/${path}`);
+    useCall('WebviewApi.revealTreeNode', treeItemId);
+  }
+  
   ElMessage.success("Fork 成功");
   dialogVisible.value = false;
 }
@@ -397,6 +455,19 @@ async function forkRepo() {
 
 <style lang="scss" scoped>
 @use '@/assets/style/common-vars.scss' as *;
+@use 'element-plus/theme-chalk/src/mixins/mixins' as *;
+
+.repo-exist-tip {
+  display: flex;
+  align-items: center;
+  color: var(--el-color-warning);
+  font-size: 12px;
+  margin-bottom: 16px;
+  
+  .el-icon {
+    margin-right: 4px;
+  }
+}
 
 :deep(.common-card-footer) {
   @extend %common-card-footer;
