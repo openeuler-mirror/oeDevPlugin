@@ -135,6 +135,7 @@ function getForkedFromRepo(repoName: string) {
     destBranchflag.value = false;
     repoInfo = list.value.find(v => v.fullName === repoName) || repoInfo;
     forkedfromRepo.value = repoInfo.forkHumanName;
+    console.info(`forkedfromRepo: ${forkedfromRepo.value}`);
 }
 
 const loadSrcBranchData = async (repoInfo: string) => {
@@ -194,8 +195,8 @@ async function createPullRequest(repoInfo: forkedRepoInfo) {
         ElMessage("请完善信息");
         return;
     }
-    const owner = repoInfo.forkHumanName.split('/')[0];
-    const repo = repoInfo.humanName.split('/')[1];
+    const owner = forkedfromRepo.value.split('/')[0];
+    const repo = forkedfromRepo.value.split('/')[1];
     const titleInfo = title.value;
     const descriptionInfo = description.value;
     const head = repoInfo.fullName.split('/')[0] + ":" + sourceBranch.value;
