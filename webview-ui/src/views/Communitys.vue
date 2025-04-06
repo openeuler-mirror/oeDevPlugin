@@ -86,6 +86,7 @@
         </div>
       </template>
     </el-dialog>
+    
     <div class="div-page">
       <el-pagination background layout="prev, pager, next" v-model:current-page="pageInfo.currentPage"
         :total="pageInfo.total" :page-size="pageInfo.pageSize" :disabled="listLoading"
@@ -104,6 +105,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 const repoStore = useOeReposStore();
 
 let dialogVisible = ref(false);
+let commitCodeDialogVisible = ref(false);
 const TABS = [
   { label: 'openEuler', value: 'openeuler' },
   { label: 'src-openEuler', value: 'src-openeuler' }
@@ -141,6 +143,8 @@ const form = reactive({
   repo: '',
   owner: '',
 })
+
+
 
 const cfgStore = usePluginCfgStore();
 
@@ -357,6 +361,7 @@ async function copyUrl(ownerSlashRepo: string) {
   }
 }
 
+
 async function openDialog(ownerSlashRepo: string, owner: string) {
   if (!ownerSlashRepo) {
     ElMessage.error('fork仓库失败，未知错误');
@@ -380,10 +385,11 @@ async function forkRepo() {
   const repo = form.repo;
   const path = form.path;
   const response = JSON.parse(await useCall('WebviewApi.forkRepo', owner, repo, path));
-  if(response.err){
+  if (response.err) {
     ElMessage.error("已经存在同名的仓库（忽略大小写），Fork 失败");
     return;
   }
+  ElMessage.success("Fork 成功");
   dialogVisible.value = false;
 }
 
@@ -488,5 +494,42 @@ async function forkRepo() {
 .div-list-blank {
   color: var(--el-color-info);
   font-size: 32px;
+}
+
+.action-button {
+  padding: 5px 5px;
+  font-size: 14px;
+  border-radius: 5px;
+  margin-left: 10px;
+  border: 1px solid #e4e4e4;
+}
+
+.change-list {
+  margin: 16px 0;
+  border: 1px solid var(--el-border-color);
+  border-radius: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.change-item {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--el-border-color-light);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.file-name {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

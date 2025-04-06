@@ -18,6 +18,7 @@ import * as fs from 'fs';
 import { exec } from 'child_process';
 import { isOpenEuler, runRpmBuildScript } from '../utils/utils';
 import { MyTreeDataProvider } from '../panels/MyTreeDataProvider';
+import * as vscode from 'vscode';
 
 let extensionContext: ExtensionContext | undefined;
 let treeView: TreeView<TreeItem> | undefined;
@@ -166,10 +167,194 @@ export class WebviewApiController {
     env.clipboard.writeText(url);
     return '已复制到剪切板';
   }
+
+  @callable()
+  async checkRepoStatus(repoPath: string) {
+    try {
+      // 检查路径是否存在
+      if (!fs.existsSync(repoPath)) {
+        return false;
+      }
+
+      // 检查是否是git仓库
+      const gitDir = path.join(repoPath, '.git');
+      if (!fs.existsSync(gitDir)) {
+        return false;
+      }
+
+
+      // 检查是否有未提交修改
+      const output = await new Promise<string>((resolve, reject) => {
+        exec('git status --porcelain', { cwd: repoPath }, (error, stdout) => {
+          error ? reject(error) : resolve(stdout);
+        });
+      });
+
+      return true;
+    } catch (error) {
+      return {
+        suc: false,
+        msg: `仓库状态检查失败: ${error instanceof Error ? error.message : error}`,
+        data: { exists: false, hasChanges: false }
+      };
+    }
+  }
+
+  @callable()
+  async getModifiedFiles(repoName: string) {
+    try {
+      const repoFolder = workspace.getConfiguration('openeuler_vscode_plugin')?.get('target_folder');
+      if (!repoFolder) {
+        return [];
+      }
+
+      const cleanRepoName = repoName.replace('.git', '');
+      const repoPath = path.join(repoFolder as string, cleanRepoName);
+      // 获取详细修改文件列表
+      const output = await new Promise<string>((resolve, reject) => {
+        exec('git status --porcelain', { cwd: repoPath }, (error, stdout) => {
+          error ? reject(error) : resolve(stdout);
+        });
+      });
+      // 解析git状态输出
+      const modifiedFiles = output
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .map(line => {
+          // 处理重命名情况：R  file1 -> file2
+          const parts = line.slice(3).split(' -> ');
+          return parts.length > 1 ? parts[1] : parts[0];
+        });
+      console.info(`modifiedFiles=${modifiedFiles}`);
+      return modifiedFiles;
+
+    } catch (error) {
+      return {
+        suc: false,
+        msg: `获取修改文件失败: ${error instanceof Error ? error.message : error}`,
+        data: { modifiedFiles: [] }
+      };
+    }
+  }
+
+  @callable()
+  async commitFiles(repo: string, filePaths: string[], commitMessage: string,branch: string, remote: string) {
+    try {
+      // Validate parameters
+      if (!filePaths?.length || !commitMessage?.trim()) {
+        return 'Invalid parameters: file paths and commit message cannot be empty';
+      }
+      
+      const targetFolder = workspace.getConfiguration('openeuler_vscode_plugin')?.get('target_folder');
+      if (!targetFolder) {
+        return 'Target folder not configured';
+      }
+      
+      const repoFolder = path.join(targetFolder as string, repo);
+      if (!fs.existsSync(repoFolder)) {
+        return `Repository folder does not exist: ${repoFolder}`;
+      }
+
+      // Git add files
+      await new Promise<void>((resolve, reject) => {
+        exec(`git add ${filePaths.map(p => `"${p}"`).join(' ')}`, { 
+          cwd: repoFolder 
+        }, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(`git add failed: ${stderr || error.message}`));
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      // Git commit
+      const result = await new Promise<string>((resolve, reject) => {
+        exec(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, {
+          cwd: repoFolder
+        }, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(`git commit failed: ${stderr || error.message}`));
+          } else {
+            resolve('Commit successful');
+          }
+        });
+      });
+
+      const username = await vscode.window.showInputBox({
+        prompt: '请输入 Gitee 账号',
+        ignoreFocusOut: true,
+      });
+      if (!username) return "请输入gitee账户名"; // 用户取消输入
+      const password = await vscode.window.showInputBox({
+        prompt: '请输入 Gitee 密码',
+        password: true, // 输入内容隐藏
+        ignoreFocusOut: true,
+      });
+      if (!password) return "请输入gitee账户密码";
+
+      const full_name = remote.replace("https://gitee.com/", "").replace(".git", "");
+      const repoUrl = `https://${username}:${password}@gitee.com/${full_name}.git`;
+      const command = `git push ${repoUrl} ${branch} --force`;
+
+      const pushResult = await new Promise<string>((resolve, reject) => {
+        exec(`${command}`, {
+          cwd: repoFolder
+        }, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(`git push failed: ${stderr || error.message}`));
+          } else {
+            resolve('Push successful');
+          }
+        });
+      });
+      console.log(`pushResult = ${pushResult}`);
+      return `commit success`;
+
+    } catch (error) {
+      return `Error during commit: ${error instanceof Error ? error.message : error}`;
+    }
+  }
   @callable()
   async configPersonalAccessToken(accessToken: string) {
     const cmd = `oegitext config -token ${accessToken}`;
     return await runOeGitExtCommand(cmd);
+  }
+
+  @callable()
+  async getGitRemotes(dirPath: string) {
+    try {
+      // 检查路径是否存在
+      if (!fs.existsSync(dirPath)) {
+        return [];
+      }
+
+      // 执行git remote -v命令
+      const output = await new Promise<string>((resolve, reject) => {
+        exec('git remote -v', { cwd: dirPath }, (error, stdout, stderr) => {
+          error ? reject(stderr || error.message) : resolve(stdout);
+        });
+      });
+
+      // 解析输出，只保留push URL相同的仓库
+      const remotes: Record<string, {url: string}> = {};
+      output.split('\n').forEach(line => {
+        if (!line.trim()) {return [];}
+        
+        const [remote, url, type] = line.split(/\s+/);
+        if (type === '(push)') {
+          remotes[remote] = {url};
+        }
+      });
+
+      // 转换为数组格式返回
+      const result = Object.values(remotes).map(({ url }) => url);
+      console.log(result);
+      return result;
+
+    } catch (error) {
+      return  [];
+    }
   }
   @callable()
   async forkRepo(user: string, repo: string, path: string) {
@@ -243,7 +428,7 @@ function openFolder(folderPath: string, cwd: string) {
   } else if (platform === 'darwin') {
     command = `open ${folderPath}`;
   } else if (platform === 'linux') {
-    command = `xdg-open ${folderPath}`;
+    command = `nautilus ${folderPath}`;
   } else {
     return `不支持的操作系统: ${platform}`;
   }
