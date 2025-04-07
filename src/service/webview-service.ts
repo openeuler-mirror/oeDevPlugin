@@ -357,8 +357,8 @@ export class WebviewApiController {
     }
   }
   @callable()
-  async forkRepo(user: string, repo: string, path: string) {
-    const cmd = `oegitext fork -user ${user} -repo ${repo} -path ${path}`;
+  async forkRepo(user: string, repo: string, name: string, path: string) {
+    const cmd = `oegitext fork -user ${user} -repo ${repo} -name ${name} -path ${path}`;
     return await runOeGitExtCommand(cmd);
   }
   @callable()
