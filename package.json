@@ -23,11 +23,6 @@
     "configuration": {
       "title": "openeuler_vscode_plugin",
       "properties": {
-        "openeuler_vscode_plugin.personal_access_token": {
-          "type": "string",
-          "description": "gitee私人令牌，需要配置项目/PR/组织权限",
-          "default": ""
-        },
         "openeuler_vscode_plugin.target_folder": {
           "type": "string",
           "description": "下载仓库的目标路径，默认为家目录的openeuler_repos文件夹",
@@ -84,6 +79,7 @@
       "openEuler": [
         {
           "id": "openeuler_plugin_expolerTreeView",
+          "icon": "resource/extension-icon.svg",
           "name": "OpenEuler Vscode Plugin"
         }
       ]
