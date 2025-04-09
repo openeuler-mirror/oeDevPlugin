@@ -100,13 +100,13 @@
 </template>
 <script lang="ts" setup>
 import axios from 'axios';
+import { Warning } from '@element-plus/icons-vue';
 import { usePluginCfgStore } from '@/store/modules/pluginCfg';
 import { useOeReposStore } from '@/store/modules/oeRepos';
 import { httpRequest } from '@/utils/request';
 import { useCall, useSubscribable } from '@/utils/apiClient';
 import TabsBar from '@/components/TabsBar.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Warning } from '@element-plus/icons-vue';
 
 const repoStore = useOeReposStore();
 
@@ -149,8 +149,6 @@ const form = reactive({
   repo: '',
   owner: '',
 })
-
-
 
 const cfgStore = usePluginCfgStore();
 
@@ -382,7 +380,7 @@ async function checkRepoExist(repoName: string) {
     return res?.data.id !== undefined;
   } catch (error) {
     // 404表示仓库不存在，其他错误视为存在
-    return error?.response?.status !== 404;
+    return axios.isAxiosError(error) && error.response?.status !== 404;
   }
 }
 
@@ -455,7 +453,6 @@ async function forkRepo() {
 
 <style lang="scss" scoped>
 @use '@/assets/style/common-vars.scss' as *;
-@use 'element-plus/theme-chalk/src/mixins/mixins' as *;
 
 .repo-exist-tip {
   display: flex;
@@ -565,14 +562,6 @@ async function forkRepo() {
 .div-list-blank {
   color: var(--el-color-info);
   font-size: 32px;
-}
-
-.action-button {
-  padding: 5px 5px;
-  font-size: 14px;
-  border-radius: 5px;
-  margin-left: 10px;
-  border: 1px solid #e4e4e4;
 }
 
 .change-list {

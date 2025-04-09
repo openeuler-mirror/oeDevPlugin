@@ -39,15 +39,29 @@ export class WebviewApiController {
   @callable()
   async getPluginCfg() {
     const cfg = workspace.getConfiguration('openeuler_vscode_plugin');
+    const tknThenable = extensionContext?.secrets?.get('personal_access_token');
+    let tkn = '';
+    if (tknThenable) {
+      tkn = await tknThenable || '';
+    }
     return {
-      personalAccessToken: cfg.get('personal_access_token') || '',
-      targetFolder: cfg.get('target_folder') || '',
+      personalAccessToken: tkn,
+      targetFolder: cfg.get('target_folder') as string || '',
     };
   }
 
   @callable()
   updatePluginCfg(cfgKey: string, cfgVal: string) {
     workspace.getConfiguration('openeuler_vscode_plugin').update(cfgKey, cfgVal || '', true);
+  }
+
+  @callable()
+  updateSecret(key: string, val: string) {
+    const tknStore = extensionContext?.secrets;
+    if (!tknStore) {
+      return;
+    }
+    tknStore.store(key, val);
   }
 
   @callable()

@@ -40,9 +40,14 @@ export const usePluginCfgStore = defineStore('pluginCfg', {
       if (this.personalAccessToken === cfgVal) {
         return;
       }
-      useCall('WebviewApi.updatePluginCfg', 'personal_access_token', cfgVal);
       this.personalAccessToken = cfgVal;
-      await this.reqGiteeUserInfo();
+      await useCall('WebviewApi.updateSecret', 'personal_access_token', cfgVal);
+      await useCall('WebviewApi.configPersonalAccessToken', cfgVal);
+      if (cfgVal === '') {
+        this.giteeUserInfo = {};
+      } else {
+        await this.reqGiteeUserInfo();
+      }
     },
     async reqGiteeUserInfo() {
       const res = await httpRequest('user').catch(() => { });
