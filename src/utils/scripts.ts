@@ -141,8 +141,22 @@ mkdir -p "$RPMBUILD_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 
+# 必须是Git仓库
 log "INFO" "Cloning repository from '$LOCAL_REPO' to temporary directory..."
 git clone "$LOCAL_REPO" "$WORKDIR" || die "Failed to clone repository."
+
+# 获取本地修改的文件列表
+MODIFIED_FILES=$(git -C "$LOCAL_REPO" diff --name-only HEAD)
+if [ -n "$MODIFIED_FILES" ]; then
+    log "INFO" "Copying modified files from local repository..."
+    echo "$MODIFIED_FILES" | while read -r file; do
+        mkdir -p "$(dirname "$WORKDIR/$file")"
+        cp "$LOCAL_REPO/$file" "$WORKDIR/$file" || die "Failed to copy modified file: $file"
+    done
+    log "SUCCESS" "Copied $(echo "$MODIFIED_FILES" | wc -l) modified files."
+else
+    log "INFO" "No local modifications found."
+fi
 
 cd "$WORKDIR" || die "Failed to enter temporary directory."
 
