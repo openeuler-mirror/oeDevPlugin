@@ -62,7 +62,7 @@ export function runRpmBuildScript(repoLocation: string, repoBranch: string) {
     }
     // Create a terminal and run the script
     const terminal = window.createTerminal('本地构建');
-    terminal.sendText(`sudo "${scriptLocation}" -r "${repoLocation}" -b "${repoBranch}"`);
+    terminal.sendText(`"${scriptLocation}" -r "${repoLocation}" -b "${repoBranch}"`);
     terminal.show();
     return 'suc';
   } catch (error) {

@@ -145,17 +145,20 @@ trap 'rm -rf "$WORKDIR"' EXIT
 log "INFO" "Cloning repository from '$LOCAL_REPO' to temporary directory..."
 git clone "$LOCAL_REPO" "$WORKDIR" || die "Failed to clone repository."
 
-# 获取本地修改的文件列表
-MODIFIED_FILES=$(git -C "$LOCAL_REPO" diff --name-only HEAD)
-if [ -n "$MODIFIED_FILES" ]; then
-    log "INFO" "Copying modified files from local repository..."
-    echo "$MODIFIED_FILES" | while read -r file; do
-        mkdir -p "$(dirname "$WORKDIR/$file")"
-        cp "$LOCAL_REPO/$file" "$WORKDIR/$file" || die "Failed to copy modified file: $file"
+# 获取所有变动的文件列表（包括新增、修改、删除等）
+CHANGED_FILES=$(git -C "$LOCAL_REPO" ls-files --modified --others --exclude-standard)
+if [ -n "$CHANGED_FILES" ]; then
+    log "INFO" "Copying changed files from local repository..."
+    echo "$CHANGED_FILES" | while read -r file; do
+        # 对于删除的文件不需要复制
+        if [ -e "$LOCAL_REPO/$file" ]; then
+            mkdir -p "$(dirname "$WORKDIR/$file")"
+            cp "$LOCAL_REPO/$file" "$WORKDIR/$file" || die "Failed to copy changed file: $file"
+        fi
     done
-    log "SUCCESS" "Copied $(echo "$MODIFIED_FILES" | wc -l) modified files."
+    log "SUCCESS" "Copied $(echo "$CHANGED_FILES" | wc -l) changed files."
 else
-    log "INFO" "No local modifications found."
+    log "INFO" "No local changes found."
 fi
 
 cd "$WORKDIR" || die "Failed to enter temporary directory."
@@ -178,7 +181,7 @@ if [ -n "$COMMIT" ]; then
 fi
 
 log "INFO" "Listing all files in the repository..."
-FILELIST=($(git ls-files))
+FILELIST=($(git ls-files --others --exclude-standard; git ls-files | sort | uniq))
 
 # 找到唯一的 .spec 文件
 SPEC_FILES=()

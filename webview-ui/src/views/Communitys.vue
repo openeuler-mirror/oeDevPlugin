@@ -48,7 +48,7 @@
             在文件夹中打开
           </el-button>
           <el-button text bg class="action-button" @click="openInIde(item.ownerSlashRepo, cloneForm.branch[i], cloneForm.currentPath)">
-            在VS-CODE中打开
+            在VSCodium中打开
           </el-button>
           <el-button text bg class="action-button" @click="copyUrl(item.ownerSlashRepo)">
             复制仓库地址
