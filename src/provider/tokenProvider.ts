@@ -8,11 +8,9 @@
  * See the Mulan PSL v2 for more details.
  * =================================================================================================================== */
 
+import * as vscode from 'vscode';
+
 export async function getAccessToken(): Promise<string> {
-  // need to getToken
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      resolve('3b510792baed53294feb42a73073c9c7'); // 模拟返回的 access_token
-    }, 1000);
-  });
+  const token = await vscode.secrets.get('personal_access_token');
+  return token || '';
 }
